@@ -1,0 +1,6 @@
+{
+  "name": "University Course Weekly Progress Tracker",
+  "description": "University course weekly study progress tracker with customizable targets, automatic Monday 12 AM reset mechanism, theme & font customization, and automated email summary reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
