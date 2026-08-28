@@ -9,7 +9,6 @@ import { WeeklyHistoryModal } from "./components/WeeklyHistoryModal";
 import { ResetConfirmModal } from "./components/ResetConfirmModal";
 import { SettingsModal } from "./components/SettingsModal";
 import { AppearanceModal } from "./components/AppearanceModal";
-import { DesktopDownloadModal } from "./components/DesktopDownloadModal";
 import { Course, WeeklyReport, UserSettings } from "./types";
 import { INITIAL_COURSES, DEFAULT_USER_SETTINGS } from "./data/defaultCourses";
 import { FONT_OPTIONS, BACKGROUND_PRESETS } from "./data/themes";
@@ -23,7 +22,11 @@ import { Plus, BookOpen, Sparkles, Check, AlertCircle, Palette } from "lucide-re
 import confetti from "canvas-confetti";
 
 export default function App() {
-  // State initialization with localStorage persistence
+  // Flag to ensure we don't overwrite server data before initial load
+  const [isDataLoadedFromServer, setIsDataLoadedFromServer] = useState(false);
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+
+  // State initialization with localStorage fallback
   const [courses, setCourses] = useState<Course[]>(() => {
     const saved = localStorage.getItem("uni_courses_data");
     if (saved) {
@@ -69,7 +72,6 @@ export default function App() {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAppearanceModalOpen, setIsAppearanceModalOpen] = useState(false);
-  const [isDesktopModalOpen, setIsDesktopModalOpen] = useState(false);
 
   // Filters & Search
   const [selectedFilter, setSelectedFilter] = useState("all");
@@ -90,18 +92,166 @@ export default function App() {
   const currentWeekId = useMemo(() => getWeekId(), []);
   const currentWeekLabel = useMemo(() => getWeekRangeLabel(), []);
 
-  // Sync state changes to localStorage
+  // Save payload to local server file system
+  const saveStateToLocalDisk = async (
+    currentCourses: Course[],
+    currentReports: WeeklyReport[],
+    currentSettings: UserSettings
+  ) => {
+    try {
+      const res = await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courses: currentCourses,
+          weeklyReports: currentReports,
+          settings: currentSettings,
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setLastSavedTime(json.savedAt || new Date().toISOString());
+        return true;
+      }
+    } catch (err) {
+      console.warn("Could not save to local disk server file:", err);
+    }
+    return false;
+  };
+
+  // 1. Initial Load: Retrieve persistent data from server local disk file
   useEffect(() => {
+    let isMounted = true;
+    const fetchLocalDiskData = async () => {
+      try {
+        const res = await fetch("/api/data");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.exists && json.data) {
+            if (Array.isArray(json.data.courses) && json.data.courses.length > 0) {
+              setCourses(json.data.courses);
+              localStorage.setItem("uni_courses_data", JSON.stringify(json.data.courses));
+            }
+            if (Array.isArray(json.data.weeklyReports)) {
+              setWeeklyReports(json.data.weeklyReports);
+              localStorage.setItem("uni_weekly_reports", JSON.stringify(json.data.weeklyReports));
+            }
+            if (json.data.settings) {
+              setSettings(prev => ({ ...prev, ...json.data.settings }));
+              localStorage.setItem("uni_user_settings", JSON.stringify({ ...DEFAULT_USER_SETTINGS, ...json.data.settings }));
+            }
+            if (json.data.lastSaved) {
+              setLastSavedTime(json.data.lastSaved);
+            }
+          } else {
+            // First run or no disk file yet: persist initial state to local disk file
+            saveStateToLocalDisk(courses, weeklyReports, settings);
+          }
+        }
+      } catch (err) {
+        console.warn("Error loading data from local disk:", err);
+      } finally {
+        if (isMounted) {
+          setIsDataLoadedFromServer(true);
+        }
+      }
+    };
+
+    fetchLocalDiskData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // 2. Debounced auto-save to both localStorage AND local server file whenever state changes
+  useEffect(() => {
+    if (!isDataLoadedFromServer) return;
+
+    // Immediate localStorage sync
     localStorage.setItem("uni_courses_data", JSON.stringify(courses));
-  }, [courses]);
-
-  useEffect(() => {
     localStorage.setItem("uni_weekly_reports", JSON.stringify(weeklyReports));
-  }, [weeklyReports]);
-
-  useEffect(() => {
     localStorage.setItem("uni_user_settings", JSON.stringify(settings));
-  }, [settings]);
+
+    // Debounced disk save
+    const timeout = setTimeout(() => {
+      saveStateToLocalDisk(courses, weeklyReports, settings);
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [courses, weeklyReports, settings, isDataLoadedFromServer]);
+
+  // Export Backup File Handler
+  const handleExportBackup = () => {
+    try {
+      const backupData = {
+        courses,
+        weeklyReports,
+        settings,
+        exportedAt: new Date().toISOString(),
+        version: "1.0",
+      };
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const dateStr = new Date().toISOString().split("T")[0];
+      a.href = url;
+      a.download = `Study_Tracker_Backup_${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("Backup JSON file successfully exported.", "success");
+    } catch (err) {
+      console.error("Export error:", err);
+      showToast("Failed to export backup file.", "warning");
+    }
+  };
+
+  // Import Backup File Handler
+  const handleImportBackup = async (file: File): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!parsed || (!Array.isArray(parsed.courses) && !parsed.settings)) {
+        return { success: false, message: "Invalid JSON format: missing courses or settings." };
+      }
+
+      if (Array.isArray(parsed.courses)) {
+        setCourses(parsed.courses);
+        localStorage.setItem("uni_courses_data", JSON.stringify(parsed.courses));
+      }
+      if (Array.isArray(parsed.weeklyReports)) {
+        setWeeklyReports(parsed.weeklyReports);
+        localStorage.setItem("uni_weekly_reports", JSON.stringify(parsed.weeklyReports));
+      }
+      if (parsed.settings) {
+        setSettings(prev => ({ ...prev, ...parsed.settings }));
+        localStorage.setItem("uni_user_settings", JSON.stringify({ ...DEFAULT_USER_SETTINGS, ...parsed.settings }));
+      }
+
+      // Persist imported data to local disk file immediately
+      await saveStateToLocalDisk(
+        parsed.courses || courses,
+        parsed.weeklyReports || weeklyReports,
+        parsed.settings ? { ...settings, ...parsed.settings } : settings
+      );
+
+      showToast("Study data successfully imported and synced to disk!", "success");
+      return { success: true };
+    } catch (err: any) {
+      console.error("Import error:", err);
+      return { success: false, message: err?.message || "Failed to parse JSON file" };
+    }
+  };
+
+  // Manual save to disk trigger
+  const handleManualSaveToDisk = async (): Promise<boolean> => {
+    const success = await saveStateToLocalDisk(courses, weeklyReports, settings);
+    if (success) {
+      showToast("Study data successfully flushed and saved to local disk file.", "success");
+    }
+    return success;
+  };
 
   // Realtime timer ticker
   useEffect(() => {
@@ -327,6 +477,7 @@ export default function App() {
           weekLabel={currentWeekLabel}
           countdown={countdown}
           settings={settings}
+          lastSavedTime={lastSavedTime}
           onOpenAddCourse={() => {
             setEditingCourse(null);
             setIsAddModalOpen(true);
@@ -337,9 +488,7 @@ export default function App() {
           }}
           onOpenHistory={() => setIsHistoryModalOpen(true)}
           onOpenSettings={() => setIsSettingsModalOpen(true)}
-          onOpenAppearance={() => setIsAppearanceModalOpen(true)}
           onOpenResetModal={() => setIsResetModalOpen(true)}
-          onOpenDesktopDownload={() => setIsDesktopModalOpen(true)}
           completedCoursesCount={completedCount}
           totalCoursesCount={courses.length}
         />
@@ -356,7 +505,6 @@ export default function App() {
               setSelectedReportForView(null);
               setIsEmailModalOpen(true);
             }}
-            onOpenDesktopDownload={() => setIsDesktopModalOpen(true)}
           />
 
           {/* Global Statistics & Search / Filter Tabs */}
@@ -377,16 +525,6 @@ export default function App() {
               </h2>
 
               <div className="flex items-center space-x-2">
-                <button
-                  id="btn-appearance-quick"
-                  onClick={() => setIsAppearanceModalOpen(true)}
-                  className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/90 text-slate-200 hover:text-white border border-slate-700/80 text-xs font-semibold backdrop-blur-xs transition-colors cursor-pointer"
-                  title="Customize Font and Canvas Theme"
-                >
-                  <Palette className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Theme & Fonts</span>
-                </button>
-
                 <button
                   id="btn-add-subject-body"
                   onClick={() => {
@@ -446,18 +584,10 @@ export default function App() {
             <div className="flex items-center justify-center space-x-3">
               <button
                 type="button"
-                onClick={() => setIsDesktopModalOpen(true)}
-                className="text-sky-400 hover:text-sky-300 font-semibold underline underline-offset-4 transition-colors cursor-pointer flex items-center space-x-1"
-              >
-                <span>Download Desktop App (.EXE & Launcher)</span>
-              </button>
-              <span>•</span>
-              <button
-                type="button"
-                onClick={() => setIsAppearanceModalOpen(true)}
+                onClick={() => setIsSettingsModalOpen(true)}
                 className="text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
-                Customize Theme & Fonts
+                Settings & Preferences
               </button>
             </div>
             <p className="text-slate-400 font-medium">
@@ -542,6 +672,10 @@ export default function App() {
           isOpen={isSettingsModalOpen}
           onClose={() => setIsSettingsModalOpen(false)}
           settings={settings}
+          lastSavedTime={lastSavedTime}
+          onExportBackup={handleExportBackup}
+          onImportBackup={handleImportBackup}
+          onManualSaveToDisk={handleManualSaveToDisk}
           onSaveSettings={(newSettings, applyToExistingCourses) => {
             setSettings(newSettings);
             if (applyToExistingCourses && newSettings.defaultSubjectTarget) {
@@ -558,14 +692,7 @@ export default function App() {
               showToast("Settings and report preferences saved.", "success");
             }
           }}
-          onOpenDesktopDownload={() => setIsDesktopModalOpen(true)}
-        />
-      )}
-
-      {isDesktopModalOpen && (
-        <DesktopDownloadModal
-          isOpen={isDesktopModalOpen}
-          onClose={() => setIsDesktopModalOpen(false)}
+          onOpenAppearance={() => setIsAppearanceModalOpen(true)}
         />
       )}
 

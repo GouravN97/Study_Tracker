@@ -34,6 +34,152 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// Data file directory and path for persistent local file storage
+const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_FILE = path.join(DATA_DIR, "study-tracker-data.json");
+
+// Ensure data folder exists
+if (!fs.existsSync(DATA_DIR)) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch (err) {
+    console.error("Failed to create data directory:", err);
+  }
+}
+
+// Get stored local user study data
+app.get("/api/data", (req, res) => {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const fileData = fs.readFileSync(DATA_FILE, "utf-8");
+      const parsed = JSON.parse(fileData);
+      return res.json({
+        exists: true,
+        data: parsed,
+        filePath: "data/study-tracker-data.json",
+      });
+    }
+    return res.json({
+      exists: false,
+      data: null,
+      filePath: "data/study-tracker-data.json",
+    });
+  } catch (err: any) {
+    console.error("Error reading local data file:", err);
+    return res.status(500).json({ error: "Failed to read local study data", message: err?.message });
+  }
+});
+
+// Save user study data to local file
+app.post("/api/data", (req, res) => {
+  try {
+    const { courses, weeklyReports, settings } = req.body || {};
+    if (!courses && !settings && !weeklyReports) {
+      return res.status(400).json({ error: "No data provided to save" });
+    }
+
+    // Read existing file if partial payload
+    let existingData: any = {};
+    if (fs.existsSync(DATA_FILE)) {
+      try {
+        existingData = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+      } catch (e) {
+        existingData = {};
+      }
+    }
+
+    const payloadToSave = {
+      courses: courses !== undefined ? courses : (existingData.courses || []),
+      weeklyReports: weeklyReports !== undefined ? weeklyReports : (existingData.weeklyReports || []),
+      settings: settings !== undefined ? settings : (existingData.settings || {}),
+      lastSaved: new Date().toISOString(),
+      version: "1.0",
+    };
+
+    fs.writeFileSync(DATA_FILE, JSON.stringify(payloadToSave, null, 2), "utf-8");
+    console.log(`[Storage] Saved study tracker data to ${DATA_FILE} at ${payloadToSave.lastSaved}`);
+
+    return res.json({
+      success: true,
+      savedAt: payloadToSave.lastSaved,
+      filePath: "data/study-tracker-data.json",
+    });
+  } catch (err: any) {
+    console.error("Error saving local data file:", err);
+    return res.status(500).json({ error: "Failed to save local study data", message: err?.message });
+  }
+});
+
+// Direct backup download of study tracker JSON file
+app.get("/api/download-backup", (req, res) => {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const dateStr = new Date().toISOString().split("T")[0];
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Content-Disposition", `attachment; filename="Study_Tracker_Backup_${dateStr}.json"`);
+      return res.sendFile(DATA_FILE);
+    }
+
+    // If file doesn't exist yet, generate from default
+    const dateStr = new Date().toISOString().split("T")[0];
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="Study_Tracker_Backup_${dateStr}.json"`);
+    return res.json({
+      courses: [],
+      weeklyReports: [],
+      settings: {},
+      lastSaved: new Date().toISOString(),
+      version: "1.0",
+    });
+  } catch (err: any) {
+    console.error("Error downloading backup:", err);
+    res.status(500).json({ error: "Failed to download backup", message: err?.message });
+  }
+});
+
+// Import backup file
+app.post("/api/import-backup", (req, res) => {
+  try {
+    const { courses, weeklyReports, settings } = req.body || {};
+    if (!Array.isArray(courses) && !settings) {
+      return res.status(400).json({ error: "Invalid backup format. Must contain courses or settings." });
+    }
+
+    const payloadToSave = {
+      courses: courses || [],
+      weeklyReports: weeklyReports || [],
+      settings: settings || {},
+      lastSaved: new Date().toISOString(),
+      importedAt: new Date().toISOString(),
+      version: "1.0",
+    };
+
+    fs.writeFileSync(DATA_FILE, JSON.stringify(payloadToSave, null, 2), "utf-8");
+
+    return res.json({
+      success: true,
+      data: payloadToSave,
+      message: "Study data successfully imported and saved to local disk.",
+    });
+  } catch (err: any) {
+    console.error("Error importing backup:", err);
+    return res.status(500).json({ error: "Failed to import study data", message: err?.message });
+  }
+});
+
+// Reset data file back to empty state if requested
+app.post("/api/reset-data", (req, res) => {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      fs.unlinkSync(DATA_FILE);
+    }
+    return res.json({ success: true, message: "Local data file cleared." });
+  } catch (err: any) {
+    console.error("Error resetting local data:", err);
+    return res.status(500).json({ error: "Failed to reset local data" });
+  }
+});
+
 // Helper to generate a reliable, structured academic study summary fallback
 const generateDeterministicSummary = (
   courses: any[] = [],

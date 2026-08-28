@@ -5,9 +5,8 @@ import {
   History, 
   Plus, 
   Settings as SettingsIcon,
-  Palette,
-  Download,
-  Monitor
+  HardDrive,
+  CheckCircle2
 } from "lucide-react";
 import { UserSettings } from "../types";
 
@@ -24,11 +23,10 @@ interface NavbarProps {
   onOpenEmailReport: () => void;
   onOpenHistory: () => void;
   onOpenSettings: () => void;
-  onOpenAppearance: () => void;
   onOpenResetModal: () => void;
-  onOpenDesktopDownload?: () => void;
   completedCoursesCount: number;
   totalCoursesCount: number;
+  lastSavedTime?: string | null;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -39,11 +37,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenEmailReport,
   onOpenHistory,
   onOpenSettings,
-  onOpenAppearance,
   onOpenResetModal,
-  onOpenDesktopDownload,
   completedCoursesCount,
   totalCoursesCount,
+  lastSavedTime,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-white shadow-md">
@@ -59,6 +56,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">
                   {settings.universityName || "University"} Course Tracker
                 </h1>
+                <span className="hidden lg:inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-[10px] font-semibold text-emerald-400">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <span>Local Disk Saved</span>
+                </span>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
                 {settings.termName} • <span className="text-slate-300 font-medium">{settings.studentName}</span>
@@ -68,20 +69,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Action Controls */}
           <div className="flex items-center space-x-1.5 sm:space-x-2.5">
-            {/* Desktop App Download Button (Prominent) */}
-            {onOpenDesktopDownload && (
-              <button
-                id="btn-desktop-download-nav"
-                onClick={onOpenDesktopDownload}
-                className="flex items-center space-x-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 hover:text-white border border-sky-500/40 text-xs sm:text-sm font-semibold transition-all shadow-xs cursor-pointer"
-                title="Download Windows .EXE & Desktop App"
-              >
-                <Download className="w-4 h-4 text-sky-400" />
-                <span className="hidden sm:inline">Desktop App (.EXE)</span>
-                <span className="sm:hidden text-[11px]">.EXE</span>
-              </button>
-            )}
-
             {/* Weekly Report & Email Button */}
             <button
               id="btn-weekly-report"
@@ -94,17 +81,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold bg-indigo-800 rounded-full">
                 {completedCoursesCount}/{totalCoursesCount}
               </span>
-            </button>
-
-            {/* Theme & Fonts Switcher Button */}
-            <button
-              id="btn-theme-appearance"
-              onClick={onOpenAppearance}
-              className="p-2 sm:px-3 sm:py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 transition-colors flex items-center space-x-1.5 text-xs sm:text-sm font-medium cursor-pointer"
-              title="Change Fonts and Background Theme"
-            >
-              <Palette className="w-4 h-4 text-indigo-400" />
-              <span className="hidden xl:inline">Theme & Fonts</span>
             </button>
 
             {/* Past History */}
@@ -133,7 +109,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               id="btn-settings"
               onClick={onOpenSettings}
               className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
-              title="Settings & Preferences"
+              title="Settings & Storage Backup"
             >
               <SettingsIcon className="w-4 h-4" />
             </button>

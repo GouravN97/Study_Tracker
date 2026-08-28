@@ -1,5 +1,5 @@
 import React from "react";
-import { Send, Calendar, Download } from "lucide-react";
+import { Send, Calendar } from "lucide-react";
 import { UserSettings } from "../types";
 
 interface CountdownCardProps {
@@ -14,7 +14,6 @@ interface CountdownCardProps {
   settings?: UserSettings;
   onTriggerReset?: () => void;
   onOpenEmailReport: () => void;
-  onOpenDesktopDownload?: () => void;
 }
 
 export const CountdownCard: React.FC<CountdownCardProps> = ({
@@ -23,7 +22,6 @@ export const CountdownCard: React.FC<CountdownCardProps> = ({
   settings,
   onTriggerReset,
   onOpenEmailReport,
-  onOpenDesktopDownload,
 }) => {
   return (
     <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 rounded-2xl p-5 sm:p-6 text-white border border-slate-700/80 shadow-lg relative overflow-hidden mb-8">
@@ -82,18 +80,6 @@ export const CountdownCard: React.FC<CountdownCardProps> = ({
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2">
-            {onOpenDesktopDownload && (
-              <button
-                id="btn-quick-download-desktop"
-                onClick={onOpenDesktopDownload}
-                className="flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-3.5 py-2 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 hover:text-white border border-sky-400/30 text-xs font-semibold transition-all shadow-xs cursor-pointer"
-                title="Download Windows .EXE and Desktop App Launcher"
-              >
-                <Download className="w-3.5 h-3.5 text-sky-400" />
-                <span>Desktop App (.EXE)</span>
-              </button>
-            )}
-
             <button
               id="btn-quick-preview-email"
               onClick={onOpenEmailReport}
