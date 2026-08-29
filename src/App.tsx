@@ -22,9 +22,10 @@ import { Plus, BookOpen, Sparkles, Check, AlertCircle, Palette } from "lucide-re
 import confetti from "canvas-confetti";
 
 export default function App() {
-  // Flag to ensure we don't overwrite server data before initial load
+  // Flags and refs to track change state and prevent unnecessary saves
   const [isDataLoadedFromServer, setIsDataLoadedFromServer] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+  const lastSavedSnapshotRef = useRef<string>("");
 
   // State initialization with localStorage fallback
   const [courses, setCourses] = useState<Course[]>(() => {
@@ -63,6 +64,12 @@ export default function App() {
     return DEFAULT_USER_SETTINGS;
   });
 
+  // Keep stateRef up to date for background interval checks without re-creating timers
+  const stateRef = useRef({ courses, weeklyReports, settings });
+  useEffect(() => {
+    stateRef.current = { courses, weeklyReports, settings };
+  }, [courses, weeklyReports, settings]);
+
   // Modal visibility states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -87,7 +94,7 @@ export default function App() {
     }, 4000);
   };
 
-  // Realtime Countdown Engine (ticks every second)
+  // Realtime Countdown Engine
   const [countdown, setCountdown] = useState(getCountdownToNextMonday());
   const currentWeekId = useMemo(() => getWeekId(), []);
   const currentWeekLabel = useMemo(() => getWeekRangeLabel(), []);
@@ -119,7 +126,7 @@ export default function App() {
     return false;
   };
 
-  // 1. Initial Load: Retrieve persistent data from server local disk file
+  // 1. Initial Load: Retrieve persistent data from server local disk file once on mount
   useEffect(() => {
     let isMounted = true;
     const fetchLocalDiskData = async () => {
@@ -127,29 +134,45 @@ export default function App() {
         const res = await fetch("/api/data");
         if (res.ok) {
           const json = await res.json();
+          let effectiveCourses = courses;
+          let effectiveReports = weeklyReports;
+          let effectiveSettings = settings;
+
           if (json.exists && json.data) {
             if (Array.isArray(json.data.courses) && json.data.courses.length > 0) {
+              effectiveCourses = json.data.courses;
               setCourses(json.data.courses);
               localStorage.setItem("uni_courses_data", JSON.stringify(json.data.courses));
             }
             if (Array.isArray(json.data.weeklyReports)) {
+              effectiveReports = json.data.weeklyReports;
               setWeeklyReports(json.data.weeklyReports);
               localStorage.setItem("uni_weekly_reports", JSON.stringify(json.data.weeklyReports));
             }
             if (json.data.settings) {
+              effectiveSettings = { ...DEFAULT_USER_SETTINGS, ...json.data.settings };
               setSettings(prev => ({ ...prev, ...json.data.settings }));
-              localStorage.setItem("uni_user_settings", JSON.stringify({ ...DEFAULT_USER_SETTINGS, ...json.data.settings }));
+              localStorage.setItem("uni_user_settings", JSON.stringify(effectiveSettings));
             }
             if (json.data.lastSaved) {
               setLastSavedTime(json.data.lastSaved);
             }
-          } else {
-            // First run or no disk file yet: persist initial state to local disk file
-            saveStateToLocalDisk(courses, weeklyReports, settings);
           }
+
+          // Initialize snapshot ref with loaded state so initial load does not trigger auto-save
+          lastSavedSnapshotRef.current = JSON.stringify({
+            courses: effectiveCourses,
+            weeklyReports: effectiveReports,
+            settings: effectiveSettings,
+          });
         }
       } catch (err) {
         console.warn("Error loading data from local disk:", err);
+        lastSavedSnapshotRef.current = JSON.stringify({
+          courses,
+          weeklyReports,
+          settings,
+        });
       } finally {
         if (isMounted) {
           setIsDataLoadedFromServer(true);
@@ -163,19 +186,28 @@ export default function App() {
     };
   }, []);
 
-  // 2. Debounced auto-save to both localStorage AND local server file whenever state changes
+  // 2. Change-driven auto-save: ONLY fires when user makes real changes to courses/reports/settings
   useEffect(() => {
     if (!isDataLoadedFromServer) return;
 
-    // Immediate localStorage sync
+    const currentSnapshot = JSON.stringify({ courses, weeklyReports, settings });
+    // If state hasn't changed compared to last saved snapshot, do nothing
+    if (currentSnapshot === lastSavedSnapshotRef.current) {
+      return;
+    }
+
+    // Save to localStorage immediately on modification
     localStorage.setItem("uni_courses_data", JSON.stringify(courses));
     localStorage.setItem("uni_weekly_reports", JSON.stringify(weeklyReports));
     localStorage.setItem("uni_user_settings", JSON.stringify(settings));
 
-    // Debounced disk save
-    const timeout = setTimeout(() => {
-      saveStateToLocalDisk(courses, weeklyReports, settings);
-    }, 400);
+    // Debounced disk save after user stops typing/dragging
+    const timeout = setTimeout(async () => {
+      const saved = await saveStateToLocalDisk(courses, weeklyReports, settings);
+      if (saved) {
+        lastSavedSnapshotRef.current = currentSnapshot;
+      }
+    }, 1000);
 
     return () => clearTimeout(timeout);
   }, [courses, weeklyReports, settings, isDataLoadedFromServer]);
@@ -253,20 +285,20 @@ export default function App() {
     return success;
   };
 
-  // Realtime timer ticker
+  // Realtime timer ticker (mounted once)
   useEffect(() => {
     const interval = setInterval(() => {
       const updated = getCountdownToNextMonday();
       setCountdown(updated);
 
       // Check if timer just rolled over to Monday 12 AM (totalSeconds <= 0)
-      if (updated.totalSeconds === 0 && settings.autoResetMonday) {
+      if (updated.totalSeconds === 0 && stateRef.current.settings.autoResetMonday) {
         performWeeklyReset(false);
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [settings.autoResetMonday, courses, settings]);
+  }, []);
 
   // Check if a new week began since the app was last opened
   useEffect(() => {

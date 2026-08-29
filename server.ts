@@ -519,7 +519,12 @@ exit /b
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        watch: {
+          ignored: ["**/data/**", "**/data/study-tracker-data.json", "**/node_modules/**", "**/.git/**"],
+        },
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
