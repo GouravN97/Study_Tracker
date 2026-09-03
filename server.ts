@@ -816,10 +816,65 @@ pause
     zip.file(
       "2-Run-Offline-Local.bat",
       `@echo off
-title Running University Course Study Tracker Locally
-echo Starting local offline study tracker...
-call npm install
+setlocal enabledelayedexpansion
+title University Course Study Tracker
+cd /d "%~dp0"
+
+echo ========================================================================
+echo   UNIVERSITY COURSE WEEKLY STUDY TRACKER - LOCAL LAUNCHER
+echo ========================================================================
+echo.
+
+:: 1. Verify Node.js
+where node >nul 2>nul
+if %errorlevel% neq 0 (
+    echo [ERROR] Node.js was not found on your system.
+    echo Please install the LTS version of Node.js from https://nodejs.org/
+    echo.
+    pause
+    exit /b 1
+)
+
+:: 2. Verify dependencies
+if not exist "node_modules\" (
+    echo [1/3] Installing dependencies for first run...
+    call npm install
+    if %errorlevel% neq 0 (
+        echo [ERROR] npm install failed. Please check internet connection.
+        pause
+        exit /b 1
+    )
+) else (
+    echo [1/3] Dependencies verified.
+)
+
+:: 3. Clear port 3000 if occupied
+netstat -ano | findstr :3000 | findstr LISTENING >nul 2>nul
+if %errorlevel% equ 0 (
+    echo [2/3] Freeing port 3000 from stale process...
+    for /f "tokens=5" %%a in ('netstat -ano ^| findstr :3000 ^| findstr LISTENING') do (
+        taskkill /F /PID %%a >nul 2>nul
+    )
+    timeout /t 1 >nul
+)
+
+:: 4. Open browser
+echo [3/3] Opening browser at http://localhost:3000...
+start "" http://localhost:3000
+
+echo.
+echo Server running at http://localhost:3000. Press Ctrl+C in this window to stop.
+echo ========================================================================
+echo.
+
+:run_app
 call npm run dev
+
+echo.
+echo [SERVER STOPPED]
+echo Press [R] to Restart, [Q] to Quit.
+set /p opt="Selection: "
+if /i "%opt%"=="R" goto :run_app
 pause
 `
     );
@@ -831,16 +886,16 @@ pause
 UNIVERSITY COURSE WEEKLY PROGRESS TRACKER - WINDOWS DESKTOP APP GUIDE
 ========================================================================
 
-HOW TO BUILD YOUR STANDALONE WINDOWS .EXE:
-------------------------------------------
-1. Double-click "1-Build-Windows-EXE.bat".
-2. It will automatically build and package the application into a portable Windows .EXE.
-3. Open the "dist" folder and run "University Study Tracker.exe".
+HOW TO RUN LOCALLY:
+-------------------
+1. Double-click "2-Run-Offline-Local.bat" (or "start-tracker.bat").
+2. It will automatically verify Node.js, install dependencies if needed,
+   free port 3000 if blocked, and open http://localhost:3000 in your browser.
 
-HOW TO RUN LOCALLY WITHOUT PACKAGING:
+HOW TO BUILD A STANDALONE WINDOWS .EXE:
 --------------------------------------
-1. Double-click "2-Run-Offline-Local.bat".
-2. Open http://localhost:3000 in your browser.
+1. Double-click "1-Build-Windows-EXE.bat".
+2. It packages the application into a portable Windows executable (.exe).
 `
     );
 
@@ -892,11 +947,21 @@ exit /b
   res.send(batContent);
 });
 
+// Global process error containment to prevent abrupt process termination
+process.on("uncaughtException", (err) => {
+  console.error("[Uncaught Exception - Prevented Crash]:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[Unhandled Rejection - Prevented Crash]:", reason);
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
+        hmr: false,
         watch: {
           ignored: ["**/data/**", "**/data/study-tracker-data.json", "**/node_modules/**", "**/.git/**"],
         },
@@ -912,9 +977,25 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`University Tracker server running on http://localhost:${PORT}`);
   });
+
+  server.on("error", (err: any) => {
+    if (err.code === "EADDRINUSE") {
+      console.warn(`\n====================================================================`);
+      console.warn(`[PORT CONFLICT] Port ${PORT} is already in use by an active process.`);
+      console.warn(`The tracker server is likely already running at http://localhost:${PORT}`);
+      console.warn(`If needed, run "stop-tracker.bat" or close other terminal instances.`);
+      console.warn(`====================================================================\n`);
+    } else {
+      console.error("[SERVER ERROR]:", err);
+    }
+  });
+
+  return server;
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error("[Startup Failure]:", err);
+});
