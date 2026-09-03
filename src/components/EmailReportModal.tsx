@@ -57,6 +57,22 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
   const [sendResult, setSendResult] = useState<{ success: boolean; deliveryId?: string; message: string } | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiSummary, setAiSummary] = useState<AISummary | null>(existingReport?.aiSummary || null);
+  const [smtpStatus, setSmtpStatus] = useState<{ configured: boolean; configuredUser?: string; user?: string; host?: string } | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch("/api/check-smtp")
+        .then((r) => r.json())
+        .then((data) => {
+          setSmtpStatus(data);
+          if (data.configuredUser && (!recipientEmail || recipientEmail === "student@university.edu" || recipientEmail === "gouravn02@gmail.com")) {
+            setRecipientEmail(data.configuredUser);
+            onUpdateEmail(data.configuredUser);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   const totalHours = courses.reduce((sum, c) => sum + c.hoursCompleted, 0);
   const totalTargetHours = courses.reduce((sum, c) => sum + c.targetHours, 0);
@@ -192,12 +208,12 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
         }),
       });
 
-      const data不易 = await res.json();
-      if (res.ok && data不易.success) {
+      const data = await res.json();
+      if (res.ok && data.success) {
         setSendResult({
           success: true,
-          deliveryId: data不易.deliveryId || data不易.messageId,
-          message: data不易.message || `Weekly report successfully delivered to ${recipientEmail}!`,
+          deliveryId: data.deliveryId || data.messageId,
+          message: data.message || `Weekly report successfully delivered to ${recipientEmail}!`,
         });
 
         // Save report snapshot to history
@@ -206,18 +222,18 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
           aiSummary: aiSummary || undefined,
           emailSentTo: recipientEmail,
           emailSentAt: new Date().toISOString(),
-          deliveryId: data不易.deliveryId || data不易.messageId,
+          deliveryId: data.deliveryId || data.messageId,
         });
-      } else if (data不易.isSmtpConfigured === false) {
+      } else if (data.isSmtpConfigured === false) {
         setSendResult({
           success: false,
-          deliveryId: data不易.deliveryId,
+          deliveryId: data.deliveryId,
           message: "SMTP is not yet configured. Use the 1-Click 'Send via Gmail' or 'Mail App' button to dispatch instantly from your email account, or enter SMTP credentials in Settings.",
         });
       } else {
         setSendResult({
           success: false,
-          message: data不易.error || data不易.message || "Failed to send email.",
+          message: data.error || data.message || "Failed to send email.",
         });
       }
     } catch (err: any) {
@@ -291,6 +307,15 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
               placeholder="your-email@university.edu"
               className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
+            {smtpStatus?.configured && (
+              <span 
+                className="hidden sm:inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 shrink-0"
+                title={`Configured sender: ${smtpStatus.configuredUser || smtpStatus.user || "SMTP Server"}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                SMTP Ready
+              </span>
+            )}
           </div>
 
           {/* View Mode Switches */}
@@ -517,11 +542,18 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
               id="btn-send-email-smtp"
               onClick={handleSendEmail}
               disabled={isSending || !recipientEmail}
-              className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer"
-              title="Send directly in background via configured SMTP server"
+              className={`flex items-center space-x-1.5 px-4 py-2.5 rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 text-white ${
+                smtpStatus?.configured
+                  ? "bg-slate-900 hover:bg-slate-800 ring-1 ring-emerald-400/40"
+                  : "bg-slate-800 hover:bg-slate-700"
+              }`}
+              title={smtpStatus?.configured ? `Send directly via ${smtpStatus.host || "SMTP"}` : "Send directly in background via configured SMTP server"}
             >
-              <Send className={`w-3.5 h-3.5 ${isSending ? "animate-pulse" : ""}`} />
+              <Send className={`w-3.5 h-3.5 ${isSending ? "animate-pulse text-indigo-400" : ""}`} />
               <span>{isSending ? "Sending..." : "Send via SMTP"}</span>
+              {smtpStatus?.configured && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block ml-0.5"></span>
+              )}
             </button>
 
             {/* 1-Click Send via Gmail */}

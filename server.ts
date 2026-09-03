@@ -644,6 +644,7 @@ app.get("/api/check-smtp", (req, res) => {
   const isConfigured = Boolean(host && user && pass);
   res.json({
     configured: isConfigured,
+    configuredUser: user,
     host: host ? host.replace(/^(.{2}).*(.{2})$/, "$1***$2") : "",
     user: user ? user.replace(/(.{2})(.*)(@.*)/, "$1***$3") : "",
   });
