@@ -26,15 +26,16 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
   searchQuery,
   onSearchChange,
 }) => {
-  const totalHoursCompleted = courses.reduce((sum, c) => sum + c.hoursCompleted, 0);
-  const totalTargetHours = courses.reduce((sum, c) => sum + c.targetHours, 0);
+  const safeCourses = Array.isArray(courses) ? courses : [];
+  const totalHoursCompleted = safeCourses.reduce((sum, c) => sum + (Number(c?.hoursCompleted) || 0), 0);
+  const totalTargetHours = safeCourses.reduce((sum, c) => sum + (Number(c?.targetHours) || 0), 0);
   const overallPercentage = totalTargetHours > 0 
     ? Math.round((totalHoursCompleted / totalTargetHours) * 100) 
     : 0;
 
-  const completedCourses = courses.filter(c => c.hoursCompleted >= c.targetHours);
-  const inProgressCourses = courses.filter(c => c.hoursCompleted > 0 && c.hoursCompleted < c.targetHours);
-  const behindCourses = courses.filter(c => c.hoursCompleted < (c.targetHours / 2));
+  const completedCourses = safeCourses.filter(c => c && (Number(c.hoursCompleted) || 0) >= (Number(c.targetHours) || 0));
+  const inProgressCourses = safeCourses.filter(c => c && (Number(c.hoursCompleted) || 0) > 0 && (Number(c.hoursCompleted) || 0) < (Number(c.targetHours) || 0));
+  const behindCourses = safeCourses.filter(c => c && (Number(c.hoursCompleted) || 0) < ((Number(c.targetHours) || 0) / 2));
 
   const hoursRemaining = Math.max(0, totalTargetHours - totalHoursCompleted);
 

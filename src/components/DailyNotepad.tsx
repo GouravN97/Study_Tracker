@@ -21,8 +21,6 @@ const STORAGE_KEY = "uni_daily_notepad_tasks";
 
 export function DailyNotepad() {
   const [isOpen, setIsOpen] = useState(false);
-  const [tasks, setTasks] = useState<DailyTask[]>([]);
-  const [newTaskText, setNewTaskText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const notepadRef = useRef<HTMLDivElement>(null);
 
@@ -37,23 +35,27 @@ export function DailyNotepad() {
     day: "numeric",
   });
 
-  // 1. Load tasks from localStorage
-  useEffect(() => {
+  // Safe lazy initializer from localStorage
+  const [tasks, setTasks] = useState<DailyTask[]>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed: DailyTask[] = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setTasks(parsed);
-          return;
+      if (typeof window !== "undefined" && window.localStorage) {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            const valid = parsed.filter(
+              (t): t is DailyTask =>
+                Boolean(t && typeof t === "object" && typeof t.id === "string" && typeof t.text === "string")
+            );
+            if (valid.length > 0) return valid;
+          }
         }
       }
     } catch (e) {
-      console.warn("Failed to load daily tasks:", e);
+      console.warn("Failed to parse initial daily tasks:", e);
     }
 
-    // Default starter tasks for today
-    const starterTasks: DailyTask[] = [
+    return [
       {
         id: "task-1",
         text: "Review lecture slides & key concepts",
@@ -76,17 +78,20 @@ export function DailyNotepad() {
         createdAt: new Date().toISOString(),
       },
     ];
-    setTasks(starterTasks);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(starterTasks));
-    } catch (_) {}
-  }, [todayStr]);
+  });
+
+  const [newTaskText, setNewTaskText] = useState("");
 
   // Save tasks to localStorage whenever modified
   const saveTasks = (updated: DailyTask[]) => {
-    setTasks(updated);
+    const sanitized = (updated || []).filter(
+      (t): t is DailyTask => Boolean(t && typeof t === "object" && t.id && t.text)
+    );
+    setTasks(sanitized);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      if (typeof window !== "undefined" && window.localStorage) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+      }
     } catch (e) {
       console.warn("Failed to persist daily tasks:", e);
     }
@@ -106,7 +111,6 @@ export function DailyNotepad() {
         notepadRef.current &&
         !notepadRef.current.contains(e.target as Node)
       ) {
-        // Only close if target isn't the toggle trigger
         const trigger = document.getElementById("notepad-toggle-btn");
         if (trigger && trigger.contains(e.target as Node)) {
           return;
@@ -132,14 +136,17 @@ export function DailyNotepad() {
     }
   }, [isOpen]);
 
-  // Filter tasks for today
-  const todayTasks = tasks.filter((t) => t.date === todayStr);
-  const completedCount = todayTasks.filter((t) => t.completed).length;
-  const pendingCount = todayTasks.length - completedCount;
+  // Safely filter tasks for today
+  const safeTasks = Array.isArray(tasks) ? tasks : [];
+  const todayTasks = safeTasks.filter(
+    (t) => Boolean(t && typeof t === "object" && t.date === todayStr)
+  );
+  const completedCount = todayTasks.filter((t) => Boolean(t?.completed)).length;
+  const pendingCount = Math.max(0, todayTasks.length - completedCount);
 
   // Check if there are uncompleted tasks from previous days to carry over
-  const previousPendingTasks = tasks.filter(
-    (t) => t.date !== todayStr && !t.completed
+  const previousPendingTasks = safeTasks.filter(
+    (t) => Boolean(t && typeof t === "object" && t.date !== todayStr && !t.completed)
   );
 
   const handleAddTask = (e?: React.FormEvent) => {
@@ -155,30 +162,30 @@ export function DailyNotepad() {
       createdAt: new Date().toISOString(),
     };
 
-    saveTasks([newTask, ...tasks]);
+    saveTasks([newTask, ...safeTasks]);
     setNewTaskText("");
   };
 
   const handleToggleTask = (id: string) => {
-    const updated = tasks.map((t) =>
-      t.id === id ? { ...t, completed: !t.completed } : t
+    const updated = safeTasks.map((t) =>
+      t && t.id === id ? { ...t, completed: !t.completed } : t
     );
     saveTasks(updated);
   };
 
   const handleDeleteTask = (id: string) => {
-    const updated = tasks.filter((t) => t.id !== id);
+    const updated = safeTasks.filter((t) => Boolean(t && t.id !== id));
     saveTasks(updated);
   };
 
   const handleClearCompleted = () => {
-    const updated = tasks.filter((t) => !(t.date === todayStr && t.completed));
+    const updated = safeTasks.filter((t) => !(t && t.date === todayStr && t.completed));
     saveTasks(updated);
   };
 
   const handleCarryOverUnfinished = () => {
-    const updated = tasks.map((t) => {
-      if (t.date !== todayStr && !t.completed) {
+    const updated = safeTasks.map((t) => {
+      if (t && t.date !== todayStr && !t.completed) {
         return { ...t, date: todayStr };
       }
       return t;

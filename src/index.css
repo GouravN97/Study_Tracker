@@ -1,9 +1,5 @@
 @import "tailwindcss";
 
-@utility font-handwriting {
-  font-family: 'Caveat', 'Kalam', cursive, sans-serif;
-}
-
 .font-handwriting {
   font-family: 'Caveat', 'Kalam', cursive, sans-serif;
 }

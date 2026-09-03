@@ -29,6 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
       localStorage.removeItem("uni_courses_data");
       localStorage.removeItem("uni_weekly_reports");
       localStorage.removeItem("uni_user_settings");
+      localStorage.removeItem("uni_daily_notepad_tasks");
     } catch (e) {
       console.error(e);
     }

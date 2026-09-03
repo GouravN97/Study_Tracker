@@ -12,7 +12,7 @@ import { AppearanceModal } from "./components/AppearanceModal";
 import { DailyNotepad } from "./components/DailyNotepad";
 import { Course, WeeklyReport, UserSettings } from "./types";
 import { INITIAL_COURSES, DEFAULT_USER_SETTINGS } from "./data/defaultCourses";
-import { FONT_OPTIONS, BACKGROUND_PRESETS } from "./data/themes";
+import { FONT_OPTIONS, BACKGROUND_PRESETS, BackgroundPreset } from "./data/themes";
 import { 
   getWeekId, 
   getWeekRangeLabel, 
@@ -33,37 +33,53 @@ export default function App() {
 
   // State initialization with localStorage fallback
   const [courses, setCourses] = useState<Course[]>(() => {
-    const saved = localStorage.getItem("uni_courses_data");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error("Error parsing saved courses", e);
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        const saved = localStorage.getItem("uni_courses_data");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const valid = parsed.filter(c => Boolean(c && typeof c === "object" && c.id && c.name));
+            if (valid.length > 0) return valid;
+          }
+        }
       }
+    } catch (e) {
+      console.error("Error parsing saved courses", e);
     }
     return INITIAL_COURSES;
   });
 
   const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>(() => {
-    const saved = localStorage.getItem("uni_weekly_reports");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error("Error parsing saved reports", e);
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        const saved = localStorage.getItem("uni_weekly_reports");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            return parsed.filter(r => Boolean(r && typeof r === "object" && r.id));
+          }
+        }
       }
+    } catch (e) {
+      console.error("Error parsing saved reports", e);
     }
     return [];
   });
 
   const [settings, setSettings] = useState<UserSettings>(() => {
-    const saved = localStorage.getItem("uni_user_settings");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error("Error parsing saved settings", e);
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        const saved = localStorage.getItem("uni_user_settings");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            return { ...DEFAULT_USER_SETTINGS, ...parsed };
+          }
+        }
       }
+    } catch (e) {
+      console.error("Error parsing saved settings", e);
     }
     return DEFAULT_USER_SETTINGS;
   });
@@ -517,20 +533,25 @@ export default function App() {
   };
 
   // Filtered & Searched Course list
+  const safeCourses = Array.isArray(courses) ? courses : [];
   const filteredCourses = useMemo(() => {
-    return courses.filter(c => {
+    return safeCourses.filter(c => {
+      if (!c) return false;
+      const hoursCompleted = Number(c.hoursCompleted) || 0;
+      const targetHours = Number(c.targetHours) || 12;
+
       // Category / Status filter
-      if (selectedFilter === "completed" && c.hoursCompleted < c.targetHours) return false;
-      if (selectedFilter === "in-progress" && (c.hoursCompleted === 0 || c.hoursCompleted >= c.targetHours)) return false;
-      if (selectedFilter === "behind" && c.hoursCompleted >= (c.targetHours / 2)) return false;
+      if (selectedFilter === "completed" && hoursCompleted < targetHours) return false;
+      if (selectedFilter === "in-progress" && (hoursCompleted === 0 || hoursCompleted >= targetHours)) return false;
+      if (selectedFilter === "behind" && hoursCompleted >= (targetHours / 2)) return false;
 
       // Text search
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchesName = c.name.toLowerCase().includes(q);
-        const matchesCode = c.code.toLowerCase().includes(q);
-        const matchesInstructor = c.instructor?.toLowerCase().includes(q);
-        const matchesCategory = c.category?.toLowerCase().includes(q);
+        const matchesName = (c.name || "").toLowerCase().includes(q);
+        const matchesCode = (c.code || "").toLowerCase().includes(q);
+        const matchesInstructor = (c.instructor || "").toLowerCase().includes(q);
+        const matchesCategory = (c.category || "").toLowerCase().includes(q);
         if (!matchesName && !matchesCode && !matchesInstructor && !matchesCategory) {
           return false;
         }
@@ -538,32 +559,44 @@ export default function App() {
 
       return true;
     });
-  }, [courses, selectedFilter, searchQuery]);
+  }, [safeCourses, selectedFilter, searchQuery]);
 
-  const completedCount = courses.filter(c => c.hoursCompleted >= c.targetHours).length;
+  const completedCount = safeCourses.filter(c => c && (Number(c.hoursCompleted) || 0) >= (Number(c.targetHours) || 12)).length;
 
-  // Resolve Active Font
+  // Resolve Active Font safely
   const activeFont = useMemo(() => {
-    return FONT_OPTIONS.find(f => f.id === (settings.fontFamily || "plus-jakarta")) || FONT_OPTIONS[0];
-  }, [settings.fontFamily]);
+    const selected = settings?.fontFamily || "plus-jakarta";
+    return (
+      FONT_OPTIONS.find(f => f.id === selected) ||
+      FONT_OPTIONS[0] || {
+        id: "plus-jakarta",
+        name: "Plus Jakarta Sans",
+        family: "'Plus Jakarta Sans', sans-serif",
+      }
+    );
+  }, [settings?.fontFamily]);
 
-  // Resolve Active Background Theme
-  const activeBgPreset = useMemo(() => {
-    return BACKGROUND_PRESETS.find(b => b.id === (settings.backgroundStyle || "slate")) || BACKGROUND_PRESETS[0];
-  }, [settings.backgroundStyle]);
+  // Resolve Active Background Theme safely
+  const activeBgPreset: BackgroundPreset = useMemo(() => {
+    const selected = settings?.backgroundStyle || "slate";
+    return (
+      BACKGROUND_PRESETS.find(b => b.id === selected) ||
+      BACKGROUND_PRESETS[0]
+    );
+  }, [settings?.backgroundStyle]);
 
-  const isCustomBg = settings.backgroundStyle === "custom" && Boolean(settings.customBackgroundUrl);
-  const isWallpaper = isCustomBg || activeBgPreset.category === "Immersive Wallpaper";
+  const isCustomBg = settings?.backgroundStyle === "custom" && Boolean(settings?.customBackgroundUrl);
+  const isWallpaper = isCustomBg || activeBgPreset?.category === "Immersive Wallpaper";
 
-  const dimOpacity = (settings.backgroundDim ?? 65) / 100;
-  const blurAmount = settings.backgroundBlur ?? 0;
+  const dimOpacity = (settings?.backgroundDim ?? 65) / 100;
+  const blurAmount = settings?.backgroundBlur ?? 0;
 
   return (
     <div 
       className="min-h-screen relative flex flex-col transition-all duration-300 selection:bg-indigo-500 selection:text-white"
       style={{
-        fontFamily: activeFont.family,
-        backgroundColor: activeBgPreset.style.backgroundColor || "#0f172a",
+        fontFamily: activeFont?.family || "'Plus Jakarta Sans', sans-serif",
+        backgroundColor: activeBgPreset?.style?.backgroundColor || "#0f172a",
       }}
     >
       {/* Background Image Layer if preset wallpaper or custom */}
