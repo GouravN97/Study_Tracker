@@ -32,22 +32,17 @@ if exist ".git" (
     )
 )
 
-:: 3. Verify that node_modules and dependencies exist
-if not exist "node_modules\" (
-    echo [2/3] First-time setup detected: Installing required packages...
-    echo (This may take a minute, please wait...)
-    call npm install
-    if %errorlevel% neq 0 (
-        echo.
-        echo [ERROR] npm install encountered an issue!
-        echo Please check your internet connection and try running "npm install" manually.
-        echo ========================================================================
-        pause
-        exit /b 1
-    )
-    echo [2/3] Packages installed successfully!
-) else (
-    echo [2/3] Packages verified.
+:: 3. Always run npm install to ensure dependencies are up-to-date
+echo [2/3] Verifying and installing required packages...
+echo (This may take a moment...)
+call npm install
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] npm install encountered an issue!
+    echo Please check your internet connection and try running "npm install" manually.
+    echo ========================================================================
+    pause
+    exit /b 1
 )
 
 :: 4. Detect and free port 3000 if occupied by a stale background instance
@@ -82,13 +77,13 @@ call npm run dev
 :: 7. If the server exits or crashes, KEEP THE WINDOW OPEN!
 echo.
 echo ========================================================================
-echo [STOPPED] The tracker server process stopped or exited.
-echo If an error was displayed above, you can review it now.
+echo [STOPPED] The tracker server process stopped or exited unexpectedly!
+echo Please read the error message printed above to see what went wrong.
 echo ========================================================================
 echo.
 echo What would you like to do?
 echo   [R] Restart Tracker Server
-echo   [I] Reinstall Dependencies (npm install) and Restart
+echo   [I] Force Reinstall Dependencies and Restart
 echo   [Q] Quit / Close Window
 echo.
 set /p choice="Enter choice [R, I, Q]: "
@@ -108,4 +103,5 @@ if /i "%choice%"=="I" (
 
 echo Exiting...
 exit /b 0
+
 

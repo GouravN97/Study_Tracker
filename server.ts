@@ -835,17 +835,13 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: 2. Verify dependencies
-if not exist "node_modules\" (
-    echo [1/3] Installing dependencies for first run...
-    call npm install
-    if %errorlevel% neq 0 (
-        echo [ERROR] npm install failed. Please check internet connection.
-        pause
-        exit /b 1
-    )
-) else (
-    echo [1/3] Dependencies verified.
+:: 2. Verify and Install dependencies
+echo [1/3] Verifying dependencies (This may take a moment)...
+call npm install
+if %errorlevel% neq 0 (
+    echo [ERROR] npm install failed. Please check internet connection.
+    pause
+    exit /b 1
 )
 
 :: 3. Clear port 3000 if occupied
@@ -998,4 +994,5 @@ async function startServer() {
 
 startServer().catch((err) => {
   console.error("[Startup Failure]:", err);
+  process.exit(1);
 });
