@@ -5,6 +5,7 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import JSZip from "jszip";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
@@ -37,19 +38,172 @@ app.get("/api/health", (req, res) => {
 // Data file directory and path for persistent local file storage
 const DATA_DIR = path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "study-tracker-data.json");
+const ARCHIVES_DIR = path.join(DATA_DIR, "archives");
 
-// Ensure data folder exists
-if (!fs.existsSync(DATA_DIR)) {
-  try {
+// Ensure data & archives folders exist
+try {
+  if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(ARCHIVES_DIR)) {
+    fs.mkdirSync(ARCHIVES_DIR, { recursive: true });
+  }
+} catch (err) {
+  console.error("Failed to create data/archives directory:", err);
+}
+
+// Server date helpers for weekly calculation
+function getServerMondayOfCurrentWeek(d: Date = new Date()): Date {
+  const date = new Date(d.getTime());
+  const day = date.getDay();
+  const diff = (day === 0 ? -6 : 1) - day;
+  const monday = new Date(date);
+  monday.setDate(date.getDate() + diff);
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+function getServerPreviousMondayMidnight(d: Date = new Date()): Date {
+  const currentMonday = getServerMondayOfCurrentWeek(d);
+  const prevMonday = new Date(currentMonday.getTime());
+  prevMonday.setDate(prevMonday.getDate() - 7);
+  prevMonday.setHours(0, 0, 0, 0);
+  return prevMonday;
+}
+
+function getServerWeekId(d: Date = new Date()): string {
+  const date = new Date(d.getTime());
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7));
+  const week1 = new Date(date.getFullYear(), 0, 4);
+  const weekNum = 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+  return `${date.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+}
+
+function getServerWeekRangeLabel(d: Date = new Date()): string {
+  const monday = getServerMondayOfCurrentWeek(d);
+  const sunday = new Date(monday.getTime());
+  sunday.setDate(sunday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  const startMonth = monday.toLocaleString("en-US", { month: "short" });
+  const endMonth = sunday.toLocaleString("en-US", { month: "short" });
+  const startDay = monday.getDate();
+  const endDay = sunday.getDate();
+  const year = sunday.getFullYear();
+
+  if (startMonth === endMonth) {
+    return `${startMonth} ${startDay} – ${endDay}, ${year}`;
+  }
+  return `${startMonth} ${startDay} – ${endMonth} ${endDay}, ${year}`;
+}
+
+// Server-side Automatic Weekly Rollover & Archiving Engine
+function performServerWeeklyRollover(force: boolean = false): boolean {
+  try {
+    if (!fs.existsSync(DATA_FILE)) return false;
+
+    const fileContent = fs.readFileSync(DATA_FILE, "utf-8");
+    if (!fileContent.trim()) return false;
+
+    const data = JSON.parse(fileContent);
+    const settings = data.settings || {};
+    const courses = Array.isArray(data.courses) ? data.courses : [];
+    const currentWeekId = getServerWeekId(new Date());
+    const lastResetWeekId = settings.lastResetWeekId;
+
+    // If auto-reset is explicitly disabled and not forced, skip
+    if (settings.autoResetMonday === false && !force) {
+      return false;
+    }
+
+    // Check if we have entered a new week or if forced
+    const isNewWeek = lastResetWeekId && lastResetWeekId !== currentWeekId;
+    if (!isNewWeek && !force) {
+      // If lastResetWeekId is not set yet, initialize it
+      if (!lastResetWeekId) {
+        data.settings = { ...settings, lastResetWeekId: currentWeekId };
+        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
+      }
+      return false;
+    }
+
+    const archiveWeekId = lastResetWeekId || getServerWeekId(getServerPreviousMondayMidnight());
+    const archiveWeekLabel = getServerWeekRangeLabel(getServerPreviousMondayMidnight());
+
+    console.log(`[AutoReset] Detected week rollover from ${archiveWeekId} to current week ${currentWeekId}. Archiving previous week data...`);
+
+    // Calculate metrics for previous week
+    const totalHours = courses.reduce((sum: number, c: any) => sum + (Number(c.hoursCompleted) || 0), 0);
+    const totalTargetHours = courses.reduce((sum: number, c: any) => sum + (Number(c.targetHours) || 0), 0);
+    const completionPercentage = totalTargetHours > 0 ? Math.round((totalHours / totalTargetHours) * 100) : 0;
+
+    const archiveReport = {
+      id: `report-${archiveWeekId}-${Date.now()}`,
+      weekId: archiveWeekId,
+      weekStartDate: getServerPreviousMondayMidnight().toISOString(),
+      weekEndDate: new Date(getServerPreviousMondayMidnight().getTime() + 6 * 86400000 + 86399000).toISOString(),
+      weekLabel: archiveWeekLabel,
+      archivedAt: new Date().toISOString(),
+      totalHours,
+      totalTargetHours,
+      completionPercentage,
+      coursesSnapshot: JSON.parse(JSON.stringify(courses)),
+      emailSentTo: settings.studentEmail || "",
+      emailSentAt: new Date().toISOString(),
+      archivedBy: force ? "manual_trigger" : "automatic_monday_rollover",
+    };
+
+    // 1. Save standalone JSON archive file to data/archives/week-[ID].json
+    const archiveFilePath = path.join(ARCHIVES_DIR, `week-${archiveWeekId}.json`);
+    fs.writeFileSync(archiveFilePath, JSON.stringify(archiveReport, null, 2), "utf-8");
+    console.log(`[AutoReset] Created weekly archive file at: ${archiveFilePath}`);
+
+    // 2. Prepend to weeklyReports array in primary study tracker data
+    const existingReports = Array.isArray(data.weeklyReports) ? data.weeklyReports : [];
+    const updatedReports = [archiveReport, ...existingReports.filter((r: any) => r.weekId !== archiveWeekId)];
+
+    // 3. Reset active course hours and notes for the fresh week
+    const resetCourses = courses.map((c: any) => ({
+      ...c,
+      hoursCompleted: 0,
+      notes: "",
+      lastUpdated: new Date().toISOString(),
+    }));
+
+    // 4. Update data state and lastResetWeekId
+    data.courses = resetCourses;
+    data.weeklyReports = updatedReports;
+    data.settings = {
+      ...settings,
+      lastResetWeekId: currentWeekId,
+    };
+    data.lastSaved = new Date().toISOString();
+    data.lastRolloverAt = new Date().toISOString();
+
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
+    console.log(`[AutoReset] Successfully reset all course hours to 0h and saved new active state for week ${currentWeekId}.`);
+    return true;
   } catch (err) {
-    console.error("Failed to create data directory:", err);
+    console.error("[AutoReset] Error during weekly rollover:", err);
+    return false;
   }
 }
 
-// Get stored local user study data
+// Run initial rollover check on server start
+performServerWeeklyRollover(false);
+
+// Background check every 15 seconds for seamless Monday 12 AM rollover
+setInterval(() => {
+  performServerWeeklyRollover(false);
+}, 15000);
+
+// Get stored local user study data (performs rollover check first)
 app.get("/api/data", (req, res) => {
   try {
+    // Check if week boundary passed
+    performServerWeeklyRollover(false);
+
     if (fs.existsSync(DATA_FILE)) {
       const fileData = fs.readFileSync(DATA_FILE, "utf-8");
       const parsed = JSON.parse(fileData);
@@ -107,6 +261,132 @@ app.post("/api/data", (req, res) => {
   } catch (err: any) {
     console.error("Error saving local data file:", err);
     return res.status(500).json({ error: "Failed to save local study data", message: err?.message });
+  }
+});
+
+// Archive Week endpoint (stores in data/archives/ & updates data file)
+app.post("/api/archive-week", (req, res) => {
+  try {
+    const { report, courses, weeklyReports, settings } = req.body || {};
+    if (!report || !report.weekId) {
+      return res.status(400).json({ error: "Missing report or weekId to archive" });
+    }
+
+    // Write individual archive file in data/archives/
+    const archiveFilePath = path.join(ARCHIVES_DIR, `week-${report.weekId}.json`);
+    fs.writeFileSync(archiveFilePath, JSON.stringify(report, null, 2), "utf-8");
+    console.log(`[Storage] Saved individual weekly archive file: ${archiveFilePath}`);
+
+    // Update main study-tracker-data.json
+    let existingData: any = {};
+    if (fs.existsSync(DATA_FILE)) {
+      try {
+        existingData = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+      } catch (e) {
+        existingData = {};
+      }
+    }
+
+    const mergedReports = weeklyReports || [report, ...(existingData.weeklyReports || []).filter((r: any) => r.weekId !== report.weekId)];
+    const mergedCourses = courses || existingData.courses || [];
+    const mergedSettings = settings ? { ...(existingData.settings || {}), ...settings } : existingData.settings || {};
+
+    const updatedData = {
+      courses: mergedCourses,
+      weeklyReports: mergedReports,
+      settings: mergedSettings,
+      lastSaved: new Date().toISOString(),
+      version: "1.0",
+    };
+
+    fs.writeFileSync(DATA_FILE, JSON.stringify(updatedData, null, 2), "utf-8");
+
+    return res.json({
+      success: true,
+      archiveFile: `data/archives/week-${report.weekId}.json`,
+      savedAt: updatedData.lastSaved,
+    });
+  } catch (err: any) {
+    console.error("Error archiving week:", err);
+    return res.status(500).json({ error: "Failed to archive week", message: err?.message });
+  }
+});
+
+// Trigger full weekly reset on demand
+app.post("/api/trigger-reset", (req, res) => {
+  try {
+    const success = performServerWeeklyRollover(true);
+    if (fs.existsSync(DATA_FILE)) {
+      const current = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+      return res.json({ success: true, data: current, message: "Weekly rollover executed and previous week archived to local folder." });
+    }
+    return res.json({ success: true, message: "Weekly reset executed." });
+  } catch (err: any) {
+    console.error("Error triggering reset:", err);
+    return res.status(500).json({ error: "Failed to trigger reset", message: err?.message });
+  }
+});
+
+// List all files in data/archives/
+app.get("/api/archives", (req, res) => {
+  try {
+    if (!fs.existsSync(ARCHIVES_DIR)) {
+      return res.json({ archives: [] });
+    }
+
+    const files = fs.readdirSync(ARCHIVES_DIR).filter(f => f.endsWith(".json"));
+    const archives = files.map(file => {
+      try {
+        const fullPath = path.join(ARCHIVES_DIR, file);
+        const stats = fs.statSync(fullPath);
+        const content = JSON.parse(fs.readFileSync(fullPath, "utf-8"));
+        return {
+          fileName: file,
+          filePath: `data/archives/${file}`,
+          weekId: content.weekId || file.replace("week-", "").replace(".json", ""),
+          weekLabel: content.weekLabel || "",
+          archivedAt: content.archivedAt || stats.mtime.toISOString(),
+          totalHours: content.totalHours || 0,
+          totalTargetHours: content.totalTargetHours || 0,
+          completionPercentage: content.completionPercentage || 0,
+          coursesCount: Array.isArray(content.coursesSnapshot) ? content.coursesSnapshot.length : 0,
+          sizeBytes: stats.size,
+        };
+      } catch (e) {
+        return {
+          fileName: file,
+          filePath: `data/archives/${file}`,
+          error: "Failed to parse archive",
+        };
+      }
+    });
+
+    return res.json({ archives });
+  } catch (err: any) {
+    console.error("Error listing archives:", err);
+    return res.status(500).json({ error: "Failed to list archives", message: err?.message });
+  }
+});
+
+// Download a specific archived week JSON file
+app.get("/api/archives/:fileName", (req, res) => {
+  try {
+    let requestedName = req.params.fileName;
+    if (!requestedName.endsWith(".json")) {
+      requestedName = `week-${requestedName}.json`;
+    }
+
+    const filePath = path.join(ARCHIVES_DIR, requestedName);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "Archive file not found" });
+    }
+
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="${requestedName}"`);
+    return res.sendFile(filePath);
+  } catch (err: any) {
+    console.error("Error downloading archive:", err);
+    return res.status(500).json({ error: "Failed to retrieve archive" });
   }
 });
 
@@ -301,44 +581,54 @@ Please generate an inspiring, actionable academic weekly progress evaluation. Re
   "encouragementQuote": "A brief uplifting quote or motto tailored for student academic stamina."
 }`;
 
-  // Resilient model fallback list: Primary -> Lite -> Flash-Latest
-  const candidateModels = ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
+  // Resilient model fallback list
+  const candidateModels = ["gemini-3.7-flash", "gemini-flash-latest"];
   let lastError: any = null;
 
   for (const modelName of candidateModels) {
-    try {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          systemInstruction: "You are a university academic performance advisor providing concise, helpful, constructive weekly study analysis.",
-        },
-      });
-
-      const text = response.text || "{}";
-      let parsedData;
+    // Retry transient 503/429 errors up to 2 attempts per model with backoff
+    for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        parsedData = JSON.parse(text);
-      } catch {
-        parsedData = fallbackData;
-      }
+        if (attempt > 0) {
+          await new Promise((r) => setTimeout(r, 800 * attempt));
+        }
 
-      return res.json({
-        ...fallbackData,
-        ...parsedData,
-        aiGenerated: true,
-        modelUsed: modelName,
-        generatedAt: new Date().toISOString(),
-      });
-    } catch (err: any) {
-      lastError = err;
-      console.warn(`Gemini generation attempt with ${modelName} failed (${err?.message || err}). Trying fallback...`);
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            systemInstruction: "You are a university academic performance advisor providing concise, helpful, constructive weekly study analysis.",
+          },
+        });
+
+        const text = response.text || "{}";
+        let parsedData;
+        try {
+          parsedData = JSON.parse(text);
+        } catch {
+          parsedData = fallbackData;
+        }
+
+        return res.json({
+          ...fallbackData,
+          ...parsedData,
+          aiGenerated: true,
+          modelUsed: modelName,
+          generatedAt: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        lastError = err;
+        const isTransient = err?.status === 503 || err?.status === 429 || err?.message?.includes("503") || err?.message?.includes("demand");
+        if (isTransient && attempt === 0) {
+          continue; // retry this model once after brief backoff
+        }
+        break; // proceed to next candidate model
+      }
     }
   }
 
-  // If all Gemini models are experiencing temporary high-demand (503 / 429), return the deterministic evaluation gracefully
-  console.warn("All Gemini model attempts exhausted. Returning resilient academic fallback evaluation:", lastError?.message);
+  // If Gemini models are experiencing temporary high-demand (503 / 429), return the deterministic evaluation gracefully
   return res.json({
     ...fallbackData,
     aiGenerated: false,
@@ -346,32 +636,98 @@ Please generate an inspiring, actionable academic weekly progress evaluation. Re
   });
 });
 
-// Endpoint to simulate/dispatch email report
+// Endpoint to check SMTP configuration status
+app.get("/api/check-smtp", (req, res) => {
+  const user = process.env.SMTP_USER || "";
+  const host = process.env.SMTP_HOST || (user.includes("@gmail.com") ? "smtp.gmail.com" : "");
+  const pass = process.env.SMTP_PASS || "";
+  const isConfigured = Boolean(host && user && pass);
+  res.json({
+    configured: isConfigured,
+    host: host ? host.replace(/^(.{2}).*(.{2})$/, "$1***$2") : "",
+    user: user ? user.replace(/(.{2})(.*)(@.*)/, "$1***$3") : "",
+  });
+});
+
+// Endpoint to dispatch email report via real SMTP or fallback
 app.post("/api/send-email-report", async (req, res) => {
   try {
-    const { toEmail, subject, htmlContent, textContent, weekLabel, stats } = req.body;
+    const { toEmail, subject, htmlContent, textContent, weekLabel, smtpConfig } = req.body;
 
     if (!toEmail) {
       return res.status(400).json({ error: "Recipient email is required" });
     }
 
-    // Generate formatted simulation record
+    // Check for SMTP configuration from body or environment
+    const smtpUser = smtpConfig?.user || process.env.SMTP_USER || "";
+    let smtpHost = smtpConfig?.host || process.env.SMTP_HOST || "";
+    if (!smtpHost && smtpUser.includes("@gmail.com")) {
+      smtpHost = "smtp.gmail.com";
+    }
+    const smtpPort = Number(smtpConfig?.port || process.env.SMTP_PORT || 587);
+    const smtpPass = (smtpConfig?.pass || process.env.SMTP_PASS || "").trim();
+    const smtpSecure = smtpConfig?.secure ?? (process.env.SMTP_SECURE === "true" || smtpPort === 465);
+    const smtpFrom = smtpConfig?.from || process.env.SMTP_FROM || smtpUser || `"University Course Tracker" <no-reply@studytracker.local>`;
+
     const deliveryId = "REP-" + Math.random().toString(36).substring(2, 9).toUpperCase();
     const sentAt = new Date().toISOString();
 
-    console.log(`[Email Dispatch] Successfully sent weekly report ${deliveryId} to ${toEmail} for ${weekLabel}`);
+    if (smtpHost && smtpUser && smtpPass) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpSecure,
+          auth: {
+            user: smtpUser,
+            pass: smtpPass,
+          },
+        });
 
-    res.json({
-      success: true,
+        const info = await transporter.sendMail({
+          from: smtpFrom,
+          to: toEmail,
+          subject: subject || `University Weekly Course Progress Report - ${weekLabel}`,
+          text: textContent,
+          html: htmlContent,
+        });
+
+        console.log(`[Email Dispatch] Real SMTP email delivered to ${toEmail}. Message ID: ${info.messageId}`);
+
+        return res.json({
+          success: true,
+          method: "smtp",
+          messageId: info.messageId,
+          deliveryId,
+          sentAt,
+          recipient: toEmail,
+          subject: subject || `University Weekly Course Progress Report - ${weekLabel}`,
+          message: `Report sent to ${toEmail} via SMTP server (${smtpHost})!`,
+        });
+      } catch (smtpErr: any) {
+        console.error("[Email Dispatch] SMTP send error:", smtpErr);
+        return res.status(500).json({
+          success: false,
+          error: `SMTP Error: ${smtpErr?.message || "Failed to authenticate with SMTP server"}`,
+          details: "Please verify your SMTP server host, username, and password or use 1-Click Gmail dispatch.",
+        });
+      }
+    }
+
+    // If SMTP is not yet configured, return informative response guiding the user to Gmail / mailto or SMTP setup
+    return res.status(200).json({
+      success: false,
+      isSmtpConfigured: false,
+      method: "unconfigured",
       deliveryId,
       sentAt,
       recipient: toEmail,
       subject: subject || `University Weekly Course Progress Report - ${weekLabel}`,
-      message: `Weekly summary report successfully sent to ${toEmail}.`,
+      message: `Direct SMTP server is not yet configured in .env or Settings. Use 1-Click "Send via Gmail" or "Mail Client" to send instantly from your browser, or provide SMTP credentials in Settings.`,
     });
   } catch (err: any) {
     console.error("Error sending email report:", err);
-    res.status(500).json({ error: "Failed to send email report", message: err?.message });
+    res.status(500).json({ error: "Failed to process email dispatch", message: err?.message });
   }
 });
 

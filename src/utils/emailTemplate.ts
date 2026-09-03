@@ -201,3 +201,17 @@ export function createMailtoUrl(report: WeeklyReport, settings: UserSettings): s
   const body = encodeURIComponent(generatePlainTextSummary(report, settings));
   return `mailto:${settings.studentEmail}?subject=${subject}&body=${body}`;
 }
+
+export function createGmailComposeUrl(report: WeeklyReport, settings: UserSettings): string {
+  const to = encodeURIComponent(settings.studentEmail);
+  const subject = encodeURIComponent(`Weekly Course Study Progress Report: ${report.weekLabel} - ${settings.studentName}`);
+  const body = encodeURIComponent(generatePlainTextSummary(report, settings));
+  return `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`;
+}
+
+export function createOutlookComposeUrl(report: WeeklyReport, settings: UserSettings): string {
+  const to = encodeURIComponent(settings.studentEmail);
+  const subject = encodeURIComponent(`Weekly Course Study Progress Report: ${report.weekLabel} - ${settings.studentName}`);
+  const body = encodeURIComponent(generatePlainTextSummary(report, settings));
+  return `https://outlook.live.com/mail/0/deeplink/compose?to=${to}&subject=${subject}&body=${body}`;
+}

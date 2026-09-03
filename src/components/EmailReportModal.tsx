@@ -15,10 +15,17 @@ import {
   AlertCircle,
   GraduationCap,
   Clock,
-  BookOpen
+  BookOpen,
+  Settings as SettingsIcon
 } from "lucide-react";
 import { Course, WeeklyReport, UserSettings, AISummary } from "../types";
-import { generateReportHtml, generatePlainTextSummary, createMailtoUrl } from "../utils/emailTemplate";
+import { 
+  generateReportHtml, 
+  generatePlainTextSummary, 
+  createMailtoUrl,
+  createGmailComposeUrl,
+  createOutlookComposeUrl
+} from "../utils/emailTemplate";
 
 interface EmailReportModalProps {
   isOpen: boolean;
@@ -141,7 +148,15 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
     { ...currentReport, aiSummary: aiSummary || undefined },
     { ...settings, studentEmail: recipientEmail }
   );
-  const mailtoLink = createMailtoUrl(
+  const mailtoLinkPort = createMailtoUrl(
+    { ...currentReport, aiSummary: aiSummary || undefined },
+    { ...settings, studentEmail: recipientEmail }
+  );
+  const gmailComposeLink = createGmailComposeUrl(
+    { ...currentReport, aiSummary: aiSummary || undefined },
+    { ...settings, studentEmail: recipientEmail }
+  );
+  const outlookComposeLink = createOutlookComposeUrl(
     { ...currentReport, aiSummary: aiSummary || undefined },
     { ...settings, studentEmail: recipientEmail }
   );
@@ -168,6 +183,7 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
           htmlContent: htmlReport,
           textContent: textReport,
           weekLabel,
+          smtpConfig: settings.smtpConfig,
           stats: {
             totalHours,
             totalTargetHours,
@@ -176,12 +192,12 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
         }),
       });
 
-      const data = await res.json();
-      if (res.ok) {
+      const data不易 = await res.json();
+      if (res.ok && data不易.success) {
         setSendResult({
           success: true,
-          deliveryId: data.deliveryId,
-          message: `Weekly report successfully delivered to ${recipientEmail}!`,
+          deliveryId: data不易.deliveryId || data不易.messageId,
+          message: data不易.message || `Weekly report successfully delivered to ${recipientEmail}!`,
         });
 
         // Save report snapshot to history
@@ -190,18 +206,24 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
           aiSummary: aiSummary || undefined,
           emailSentTo: recipientEmail,
           emailSentAt: new Date().toISOString(),
-          deliveryId: data.deliveryId,
+          deliveryId: data不易.deliveryId || data不易.messageId,
+        });
+      } else if (data不易.isSmtpConfigured === false) {
+        setSendResult({
+          success: false,
+          deliveryId: data不易.deliveryId,
+          message: "SMTP is not yet configured. Use the 1-Click 'Send via Gmail' or 'Mail App' button to dispatch instantly from your email account, or enter SMTP credentials in Settings.",
         });
       } else {
         setSendResult({
           success: false,
-          message: data.error || "Failed to send email.",
+          message: data不易.error || data不易.message || "Failed to send email.",
         });
       }
     } catch (err: any) {
       setSendResult({
         success: false,
-        message: err.message || "Network error while sending email report.",
+        message: err.message || "Network error while connecting to email dispatch endpoint.",
       });
     } finally {
       setIsSending(false);
@@ -432,7 +454,7 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
 
         {/* Footer Actions */}
         <div className="p-4 sm:p-5 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Copy Button */}
             <button
               id="btn-copy-report"
@@ -440,7 +462,7 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
               className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
             >
               {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-500" />}
-              <span>{copied ? "Copied!" : "Copy Report"}</span>
+              <span>{copied ? "Copied!" : "Copy Text"}</span>
             </button>
 
             {/* Download */}
@@ -456,35 +478,71 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
             {/* Open in Native Mail Client */}
             <a
               id="btn-mailto"
-              href={mailtoLink}
+              href={mailtoLinkPort}
               target="_blank"
               rel="noreferrer"
               className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
               title="Open prepared email in your default mail app"
             >
               <ExternalLink className="w-4 h-4 text-slate-500" />
-              <span className="hidden sm:inline">Mail Client</span>
+              <span className="hidden sm:inline">Mail App</span>
+            </a>
+
+            {/* Open in Outlook */}
+            <a
+              id="btn-outlook"
+              href={outlookComposeLink}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center space-x-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              title="Open prepared email in Outlook Web"
+            >
+              <Mail className="w-4 h-4 text-blue-600" />
+              <span className="hidden sm:inline">Outlook</span>
             </a>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2.5">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 cursor-pointer"
+              className="px-3.5 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 cursor-pointer"
             >
               Close
             </button>
 
-            {/* Main Primary Send Action */}
+            {/* Send via SMTP */}
             <button
-              id="btn-send-email-now"
+              id="btn-send-email-smtp"
               onClick={handleSendEmail}
               disabled={isSending || !recipientEmail}
-              className="flex items-center space-x-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs sm:text-sm font-bold shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
+              className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer"
+              title="Send directly in background via configured SMTP server"
             >
-              <Send className={`w-4 h-4 ${isSending ? "animate-pulse" : ""}`} />
-              <span>{isSending ? "Dispatching Report..." : `Send Email to ${recipientEmail}`}</span>
+              <Send className={`w-3.5 h-3.5 ${isSending ? "animate-pulse" : ""}`} />
+              <span>{isSending ? "Sending..." : "Send via SMTP"}</span>
             </button>
+
+            {/* 1-Click Send via Gmail */}
+            <a
+              id="btn-send-gmail-now"
+              href={gmailComposeLink}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => {
+                onSaveReportToArchive({
+                  ...currentReport,
+                  aiSummary: aiSummary || undefined,
+                  emailSentTo: recipientEmail,
+                  emailSentAt: new Date().toISOString(),
+                  deliveryId: "GMAIL-" + Math.random().toString(36).substring(2, 8).toUpperCase(),
+                });
+              }}
+              className="flex items-center space-x-2 px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs sm:text-sm font-bold shadow-md shadow-red-500/20 transition-all cursor-pointer"
+              title="Open in Gmail with pre-filled summary and hit Send"
+            >
+              <Mail className="w-4 h-4 text-white" />
+              <span>Send with Gmail (1-Click)</span>
+            </a>
           </div>
         </div>
       </div>

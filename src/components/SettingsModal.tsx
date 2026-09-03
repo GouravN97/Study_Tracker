@@ -302,10 +302,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <label className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100/70 transition-colors">
                   <div className="space-y-0.5">
                     <span className="font-bold text-slate-800 text-xs sm:text-sm">
-                      Automatic Monday 12:00 AM Reset
+                      Automatic Monday 12:00 AM Reset & Archive
                     </span>
                     <p className="text-[11px] text-slate-500">
-                      Automatically archive week progress and clear sliders at Monday midnight.
+                      Store completed week into <code className="bg-slate-200 px-1 rounded text-indigo-700 font-mono">data/archives/</code> and start fresh at 0.0h on Monday 12 AM midnight.
                     </p>
                   </div>
                   <input

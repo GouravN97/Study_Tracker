@@ -123,6 +123,16 @@ export const WeeklyHistoryModal: React.FC<WeeklyHistoryModalProps> = ({
                     </div>
 
                     <div className="flex items-center space-x-2 shrink-0">
+                      <a
+                        href={`/api/archives/week-${rep.weekId}.json`}
+                        download={`week-${rep.weekId}.json`}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1"
+                        title="Download raw archive JSON file stored in data/archives/"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">JSON</span>
+                      </a>
+
                       <button
                         onClick={() => {
                           onViewReport(rep);

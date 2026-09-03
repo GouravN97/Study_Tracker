@@ -74,9 +74,9 @@ export const ResetConfirmModal: React.FC<ResetConfirmModalProps> = ({
               <div className="flex items-start space-x-2.5">
                 <Archive className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
                 <div>
-                  <strong className="text-slate-900 text-xs">1. Archive Weekly Progress:</strong>
+                  <strong className="text-slate-900 text-xs">1. Store Away Previous Week into Local Folder:</strong>
                   <p className="text-[11px] text-slate-500">
-                    Saves current snapshot ({totalHours.toFixed(1)}h / {totalTargetHours}h across {courses.length} subjects) to history.
+                    Saves full snapshot ({totalHours.toFixed(1)}h / {totalTargetHours}h across {courses.length} subjects) into <span className="font-mono text-slate-800">data/archives/week-[ID].json</span> and stores in history.
                   </p>
                 </div>
               </div>
@@ -84,9 +84,9 @@ export const ResetConfirmModal: React.FC<ResetConfirmModalProps> = ({
               <div className="flex items-start space-x-2.5">
                 <Mail className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
                 <div>
-                  <strong className="text-slate-900 text-xs">2. Generate & Send Weekly Report Email:</strong>
+                  <strong className="text-slate-900 text-xs">2. Generate Weekly Report & Email:</strong>
                   <p className="text-[11px] text-slate-500">
-                    Dispatches executive summary and AI recommendations to <span className="font-mono text-slate-800">{settings.studentEmail}</span>.
+                    Prepares breakdown and AI study audit for <span className="font-mono text-slate-800">{settings.studentEmail}</span>.
                   </p>
                 </div>
               </div>
@@ -94,9 +94,9 @@ export const ResetConfirmModal: React.FC<ResetConfirmModalProps> = ({
               <div className="flex items-start space-x-2.5">
                 <RefreshCw className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
                 <div>
-                  <strong className="text-slate-900 text-xs">3. Reset Sliders to 0 Hours:</strong>
+                  <strong className="text-slate-900 text-xs">3. Reset Sliders to 0.0 Hours & Start Afresh:</strong>
                   <p className="text-[11px] text-slate-500">
-                    Clears sliders to 0.0h for the fresh weekly cycle.
+                    Clears active subject sliders to 0.0h and wipes notes to start the new week with a clean slate.
                   </p>
                 </div>
               </div>

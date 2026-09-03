@@ -16,7 +16,10 @@ import {
   getWeekId, 
   getWeekRangeLabel, 
   getCountdownToNextMonday, 
-  getMondayOfCurrentWeek 
+  getMondayOfCurrentWeek,
+  getPreviousWeekId,
+  getPreviousWeekRangeLabel,
+  getPreviousMondayMidnight
 } from "./utils/dateUtils";
 import { Plus, BookOpen, Sparkles, Check, AlertCircle, Palette } from "lucide-react";
 import confetti from "canvas-confetti";
@@ -139,7 +142,7 @@ export default function App() {
           let effectiveSettings = settings;
 
           if (json.exists && json.data) {
-            if (Array.isArray(json.data.courses) && json.data.courses.length > 0) {
+            if (Array.isArray(json.data.courses)) {
               effectiveCourses = json.data.courses;
               setCourses(json.data.courses);
               localStorage.setItem("uni_courses_data", JSON.stringify(json.data.courses));
@@ -157,6 +160,45 @@ export default function App() {
             if (json.data.lastSaved) {
               setLastSavedTime(json.data.lastSaved);
             }
+          }
+
+          // Check if week boundary passed and auto-reset is enabled
+          const thisWeekNow = getWeekId(new Date());
+          if (
+            effectiveSettings.autoResetMonday !== false &&
+            effectiveSettings.lastResetWeekId &&
+            effectiveSettings.lastResetWeekId !== thisWeekNow
+          ) {
+            console.log(`[AutoReset] New week detected on load (${thisWeekNow} vs ${effectiveSettings.lastResetWeekId}). Executing rollover...`);
+            // Trigger server reset / archive
+            try {
+              const resetRes = await fetch("/api/trigger-reset", { method: "POST" });
+              if (resetRes.ok) {
+                const resetJson = await resetRes.json();
+                if (resetJson.data) {
+                  if (Array.isArray(resetJson.data.courses)) {
+                    effectiveCourses = resetJson.data.courses;
+                    setCourses(resetJson.data.courses);
+                    localStorage.setItem("uni_courses_data", JSON.stringify(resetJson.data.courses));
+                  }
+                  if (Array.isArray(resetJson.data.weeklyReports)) {
+                    effectiveReports = resetJson.data.weeklyReports;
+                    setWeeklyReports(resetJson.data.weeklyReports);
+                    localStorage.setItem("uni_weekly_reports", JSON.stringify(resetJson.data.weeklyReports));
+                  }
+                  if (resetJson.data.settings) {
+                    effectiveSettings = { ...DEFAULT_USER_SETTINGS, ...resetJson.data.settings };
+                    setSettings(prev => ({ ...prev, ...resetJson.data.settings }));
+                    localStorage.setItem("uni_user_settings", JSON.stringify(effectiveSettings));
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn("Error running trigger-reset on startup:", err);
+            }
+          } else if (!effectiveSettings.lastResetWeekId) {
+            setSettings(prev => ({ ...prev, lastResetWeekId: thisWeekNow }));
+            effectiveSettings.lastResetWeekId = thisWeekNow;
           }
 
           // Initialize snapshot ref with loaded state so initial load does not trigger auto-save
@@ -288,11 +330,19 @@ export default function App() {
   // Realtime timer ticker (mounted once)
   useEffect(() => {
     const interval = setInterval(() => {
-      const updated = getCountdownToNextMonday();
+      const now = new Date();
+      const updated = getCountdownToNextMonday(now);
       setCountdown(updated);
 
-      // Check if timer just rolled over to Monday 12 AM (totalSeconds <= 0)
-      if (updated.totalSeconds === 0 && stateRef.current.settings.autoResetMonday) {
+      const thisWeekNow = getWeekId(now);
+      // Automatic Monday 12:00 AM Rollover Check:
+      // If current time passed Monday 12 AM into a new ISO week, trigger weekly reset and disk archive
+      if (
+        stateRef.current.settings.autoResetMonday !== false &&
+        stateRef.current.settings.lastResetWeekId &&
+        thisWeekNow !== stateRef.current.settings.lastResetWeekId
+      ) {
+        console.log(`[AutoReset] Monday 12 AM boundary crossed (${thisWeekNow} vs ${stateRef.current.settings.lastResetWeekId}). Executing automatic rollover...`);
         performWeeklyReset(false);
       }
     }, 1000);
@@ -300,56 +350,101 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Check if a new week began since the app was last opened
-  useEffect(() => {
-    const savedLastWeek = settings.lastResetWeekId;
-    if (savedLastWeek && savedLastWeek !== currentWeekId && settings.autoResetMonday) {
-      console.log(`New week detected (${currentWeekId} vs ${savedLastWeek}). Performing automatic reset...`);
-      performWeeklyReset(false);
-    } else if (!savedLastWeek) {
-      setSettings(prev => ({ ...prev, lastResetWeekId: currentWeekId }));
-    }
-  }, []);
+  // Weekly Reset Execution Handler (Stores previous week to local folder and starts fresh)
+  const performWeeklyReset = async (isManual: boolean = true) => {
+    const currentCourses = stateRef.current.courses;
+    const currentSettings = stateRef.current.settings;
+    const currentReports = stateRef.current.weeklyReports;
 
-  // Weekly Reset Execution Handler
-  const performWeeklyReset = (isManual: boolean = true) => {
-    const totalHours = courses.reduce((sum, c) => sum + c.hoursCompleted, 0);
-    const totalTargetHours = courses.reduce((sum, c) => sum + c.targetHours, 0);
+    const now = new Date();
+    const activeWeekId = getWeekId(now);
+    // If manual or triggered immediately, the week being archived is either lastResetWeekId or previous week ID
+    const archiveWeekId = currentSettings.lastResetWeekId || (isManual ? activeWeekId : getPreviousWeekId(now));
+    const archiveWeekLabel = isManual ? getWeekRangeLabel(now) : getPreviousWeekRangeLabel(now);
+
+    const totalHours = currentCourses.reduce((sum, c) => sum + (Number(c.hoursCompleted) || 0), 0);
+    const totalTargetHours = currentCourses.reduce((sum, c) => sum + (Number(c.targetHours) || 0), 0);
     const completionPercentage = totalTargetHours > 0 ? Math.round((totalHours / totalTargetHours) * 100) : 0;
 
-    // 1. Create archived WeeklyReport
+    // 1. Create comprehensive archived WeeklyReport
     const newReport: WeeklyReport = {
-      id: "report-" + Date.now(),
-      weekId: currentWeekId,
-      weekStartDate: getMondayOfCurrentWeek().toISOString(),
-      weekEndDate: new Date().toISOString(),
-      weekLabel: currentWeekLabel,
-      archivedAt: new Date().toISOString(),
+      id: `report-${archiveWeekId}-${Date.now()}`,
+      weekId: archiveWeekId,
+      weekStartDate: isManual ? getMondayOfCurrentWeek(now).toISOString() : getPreviousMondayMidnight(now).toISOString(),
+      weekEndDate: now.toISOString(),
+      weekLabel: archiveWeekLabel,
+      archivedAt: now.toISOString(),
       totalHours,
       totalTargetHours,
       completionPercentage,
-      coursesSnapshot: JSON.parse(JSON.stringify(courses)),
-      emailSentTo: settings.studentEmail,
-      emailSentAt: new Date().toISOString(),
+      coursesSnapshot: JSON.parse(JSON.stringify(currentCourses)),
+      emailSentTo: currentSettings.studentEmail || "",
+      emailSentAt: now.toISOString(),
     };
 
-    setWeeklyReports(prev => [newReport, ...prev.filter(r => r.weekId !== currentWeekId)]);
+    // 2. Reset active hours and notes for all courses to 0 for the fresh week
+    const resetCourses: Course[] = currentCourses.map(c => ({
+      ...c,
+      hoursCompleted: 0,
+      notes: "",
+      lastUpdated: now.toISOString(),
+    }));
 
-    // 2. Reset active hours for all courses to 0 for incoming week
-    setCourses(prev => prev.map(c => ({ ...c, hoursCompleted: 0, notes: "" })));
+    // 3. Prepend to weekly reports
+    const updatedReports = [newReport, ...currentReports.filter(r => r.weekId !== archiveWeekId)];
 
-    // 3. Update last reset week ID in settings
-    setSettings(prev => ({ ...prev, lastResetWeekId: currentWeekId }));
+    // 4. Update settings with new active week ID
+    const updatedSettings: UserSettings = {
+      ...currentSettings,
+      lastResetWeekId: activeWeekId,
+    };
+
+    // Update React states immediately
+    setCourses(resetCourses);
+    setWeeklyReports(updatedReports);
+    setSettings(updatedSettings);
+
+    // Sync to localStorage
+    localStorage.setItem("uni_courses_data", JSON.stringify(resetCourses));
+    localStorage.setItem("uni_weekly_reports", JSON.stringify(updatedReports));
+    localStorage.setItem("uni_user_settings", JSON.stringify(updatedSettings));
+
+    // 5. Store archive to local folder file (data/archives/week-[ID].json) and save fresh state to disk
+    try {
+      const archiveRes = await fetch("/api/archive-week", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          report: newReport,
+          courses: resetCourses,
+          weeklyReports: updatedReports,
+          settings: updatedSettings,
+        }),
+      });
+      if (archiveRes.ok) {
+        const resJson = await archiveRes.json();
+        setLastSavedTime(resJson.savedAt || new Date().toISOString());
+        lastSavedSnapshotRef.current = JSON.stringify({
+          courses: resetCourses,
+          weeklyReports: updatedReports,
+          settings: updatedSettings,
+        });
+      }
+    } catch (err) {
+      console.warn("Failed to archive week via server API:", err);
+      // Fallback save
+      saveStateToLocalDisk(resetCourses, updatedReports, updatedSettings);
+    }
 
     showToast(
       isManual 
-        ? "Monday 12 AM Reset executed! Progress archived and sliders reset to 0h." 
-        : "Automatic Monday 12 AM rollover executed! Fresh weekly cycle started.",
+        ? `Monday 12 AM Reset executed! Previous week (${archiveWeekId}) stored in local archives folder & courses started afresh.` 
+        : `Automatic Monday 12 AM rollover executed! Week ${archiveWeekId} archived to local disk & fresh week started.`,
       "success"
     );
 
     // Open email report modal automatically if configured
-    if (settings.autoEmailReport || isManual) {
+    if (updatedSettings.autoEmailReport || isManual) {
       setSelectedReportForView(newReport);
       setIsEmailModalOpen(true);
     }

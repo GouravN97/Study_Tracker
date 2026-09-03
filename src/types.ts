@@ -41,6 +41,15 @@ export interface WeeklyReport {
   aiSummary?: AISummary;
 }
 
+export interface SMTPConfig {
+  host?: string;
+  port?: number;
+  user?: string;
+  pass?: string;
+  secure?: boolean;
+  from?: string;
+}
+
 export interface UserSettings {
   studentName: string;
   studentEmail: string;
@@ -55,6 +64,7 @@ export interface UserSettings {
   customBackgroundUrl?: string;
   backgroundDim?: number;
   backgroundBlur?: number;
+  smtpConfig?: SMTPConfig;
 }
 
 export interface EmailLog {
