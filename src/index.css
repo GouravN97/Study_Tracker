@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+@utility font-handwriting {
+  font-family: 'Caveat', 'Kalam', cursive, sans-serif;
+}
+
+.font-handwriting {
+  font-family: 'Caveat', 'Kalam', cursive, sans-serif;
+}
+
+/* Notepad lined paper background pattern */
+.notepad-paper-lines {
+  background-color: #fefcf3;
+  background-image: 
+    linear-gradient(90deg, transparent 44px, rgba(239, 68, 68, 0.35) 44px, rgba(239, 68, 68, 0.35) 46px, transparent 46px),
+    repeating-linear-gradient(transparent, transparent 35px, rgba(186, 198, 217, 0.45) 35px, rgba(186, 198, 217, 0.45) 36px);
+  background-size: 100% 100%, 100% 36px;
+  line-height: 36px;
+}

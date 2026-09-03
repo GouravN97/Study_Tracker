@@ -9,6 +9,7 @@ import { WeeklyHistoryModal } from "./components/WeeklyHistoryModal";
 import { ResetConfirmModal } from "./components/ResetConfirmModal";
 import { SettingsModal } from "./components/SettingsModal";
 import { AppearanceModal } from "./components/AppearanceModal";
+import { DailyNotepad } from "./components/DailyNotepad";
 import { Course, WeeklyReport, UserSettings } from "./types";
 import { INITIAL_COURSES, DEFAULT_USER_SETTINGS } from "./data/defaultCourses";
 import { FONT_OPTIONS, BACKGROUND_PRESETS } from "./data/themes";
@@ -822,6 +823,9 @@ export default function App() {
           onOpenAppearance={() => setIsAppearanceModalOpen(true)}
         />
       )}
+
+      {/* Small Notepad on Left Edge for Daily Handwritten To-Do */}
+      <DailyNotepad />
 
       {/* Floating Toast Notification */}
       {toastMessage && (
