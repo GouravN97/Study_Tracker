@@ -649,6 +649,20 @@ app.get("/api/check-smtp", (req, res) => {
   });
 });
 
+function sanitizeSenderAddress(raw: string, fallback: string): string {
+  if (!raw) return fallback;
+  // Remove wrapping quotes e.g. "foo" or 'foo'
+  let cleaned = raw.replace(/^["'\s]+|["'\s]+$/g, "").trim();
+  // Check if it's formatted as "Name" <email@domain.com>
+  const match = cleaned.match(/^(.*?)\s*<([^>]+)>$/);
+  if (match) {
+    const name = match[1].replace(/["']/g, "").trim();
+    const addr = match[2].replace(/["'\s]/g, "").trim();
+    return name ? `"${name}" <${addr}>` : addr;
+  }
+  return cleaned.replace(/["'\s]/g, "");
+}
+
 // Endpoint to dispatch email report via real SMTP or fallback
 app.post("/api/send-email-report", async (req, res) => {
   try {
@@ -658,16 +672,21 @@ app.post("/api/send-email-report", async (req, res) => {
       return res.status(400).json({ error: "Recipient email is required" });
     }
 
+    const cleanTo = sanitizeSenderAddress(toEmail, toEmail).replace(/^.*<([^>]+)>$/, "$1");
+
     // Check for SMTP configuration from body or environment
-    const smtpUser = smtpConfig?.user || process.env.SMTP_USER || "";
-    let smtpHost = smtpConfig?.host || process.env.SMTP_HOST || "";
+    const smtpUser = (smtpConfig?.user || process.env.SMTP_USER || "").trim().replace(/["']/g, "");
+    let smtpHost = (smtpConfig?.host || process.env.SMTP_HOST || "").trim().replace(/["']/g, "");
     if (!smtpHost && smtpUser.includes("@gmail.com")) {
       smtpHost = "smtp.gmail.com";
     }
     const smtpPort = Number(smtpConfig?.port || process.env.SMTP_PORT || 587);
-    const smtpPass = (smtpConfig?.pass || process.env.SMTP_PASS || "").trim();
+    const smtpPass = (smtpConfig?.pass || process.env.SMTP_PASS || "").trim().replace(/["']/g, "");
     const smtpSecure = smtpConfig?.secure ?? (process.env.SMTP_SECURE === "true" || smtpPort === 465);
-    const smtpFrom = smtpConfig?.from || process.env.SMTP_FROM || smtpUser || `"University Course Tracker" <no-reply@studytracker.local>`;
+    
+    // Clean and validate sender
+    const rawFrom = smtpConfig?.from || process.env.SMTP_FROM || smtpUser || `"University Course Tracker" <no-reply@studytracker.local>`;
+    const smtpFrom = sanitizeSenderAddress(rawFrom, smtpUser);
 
     const deliveryId = "REP-" + Math.random().toString(36).substring(2, 9).toUpperCase();
     const sentAt = new Date().toISOString();
@@ -686,13 +705,13 @@ app.post("/api/send-email-report", async (req, res) => {
 
         const info = await transporter.sendMail({
           from: smtpFrom,
-          to: toEmail,
+          to: cleanTo,
           subject: subject || `University Weekly Course Progress Report - ${weekLabel}`,
           text: textContent,
           html: htmlContent,
         });
 
-        console.log(`[Email Dispatch] Real SMTP email delivered to ${toEmail}. Message ID: ${info.messageId}`);
+        console.log(`[Email Dispatch] Real SMTP email delivered to ${cleanTo}. Message ID: ${info.messageId}`);
 
         return res.json({
           success: true,
@@ -700,9 +719,9 @@ app.post("/api/send-email-report", async (req, res) => {
           messageId: info.messageId,
           deliveryId,
           sentAt,
-          recipient: toEmail,
+          recipient: cleanTo,
           subject: subject || `University Weekly Course Progress Report - ${weekLabel}`,
-          message: `Report sent to ${toEmail} via SMTP server (${smtpHost})!`,
+          message: `Report successfully sent to ${cleanTo} via SMTP (${smtpHost})!`,
         });
       } catch (smtpErr: any) {
         console.error("[Email Dispatch] SMTP send error:", smtpErr);

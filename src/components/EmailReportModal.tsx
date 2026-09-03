@@ -331,7 +331,9 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
               {sendResult.success ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-rose-600" />}
               <span>{sendResult.message}</span>
               {sendResult.deliveryId && (
-                <span className="font-mono bg-emerald-100 px-1.5 py-0.5 rounded text-[11px] text-emerald-900">
+                <span className={`font-mono px-1.5 py-0.5 rounded text-[11px] ${
+                  sendResult.success ? "bg-emerald-100 text-emerald-900" : "bg-rose-100 text-rose-900"
+                }`}>
                   Ref: {sendResult.deliveryId}
                 </span>
               )}
