@@ -835,13 +835,23 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: 2. Verify and Install dependencies
-echo [1/3] Verifying dependencies (This may take a moment)...
-call npm install
-if %errorlevel% neq 0 (
-    echo [ERROR] npm install failed. Please check internet connection.
-    pause
-    exit /b 1
+:: 2. Fast Dependency Synchronization
+set NEEDS_INSTALL=0
+if not exist "node_modules\" set NEEDS_INSTALL=1
+fc package.json .installed_package.json >nul 2>nul
+if %errorlevel% neq 0 set NEEDS_INSTALL=1
+
+if "%NEEDS_INSTALL%"=="1" (
+    echo [1/3] Package changes detected! Synchronizing dependencies...
+    call npm install --no-audit --no-fund
+    if %errorlevel% neq 0 (
+        echo [ERROR] npm install failed. Please check internet connection.
+        pause
+        exit /b 1
+    )
+    copy /y package.json .installed_package.json >nul
+) else (
+    echo [1/3] Dependencies verified and up-to-date.
 )
 
 :: 3. Clear port 3000 if occupied

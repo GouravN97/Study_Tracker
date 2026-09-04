@@ -32,17 +32,27 @@ if exist ".git" (
     )
 )
 
-:: 3. Always run npm install to ensure dependencies are up-to-date
-echo [2/3] Verifying and installing required packages...
-echo (This may take a moment...)
-call npm install
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] npm install encountered an issue!
-    echo Please check your internet connection and try running "npm install" manually.
-    echo ========================================================================
-    pause
-    exit /b 1
+:: 3. Fast Dependency Synchronization (Only runs if needed)
+set NEEDS_INSTALL=0
+if not exist "node_modules\" set NEEDS_INSTALL=1
+fc package.json .installed_package.json >nul 2>nul
+if %errorlevel% neq 0 set NEEDS_INSTALL=1
+
+if "%NEEDS_INSTALL%"=="1" (
+    echo [2/3] Package changes detected! Synchronizing dependencies...
+    echo (This may take a moment, please wait...)
+    call npm install --no-audit --no-fund
+    if %errorlevel% neq 0 (
+        echo.
+        echo [ERROR] npm install encountered an issue!
+        echo Please check your internet connection and try running "npm install" manually.
+        echo ========================================================================
+        pause
+        exit /b 1
+    )
+    copy /y package.json .installed_package.json >nul
+) else (
+    echo [2/3] Dependencies are already synchronized and up-to-date.
 )
 
 :: 4. Detect and free port 3000 if occupied by a stale background instance
