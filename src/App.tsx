@@ -14,6 +14,7 @@ import { PreviousWeeksDashboardModal } from "./components/PreviousWeeksDashboard
 import { Course, WeeklyReport, UserSettings } from "./types";
 import { INITIAL_COURSES, DEFAULT_USER_SETTINGS } from "./data/defaultCourses";
 import { FONT_OPTIONS, BACKGROUND_PRESETS, BackgroundPreset } from "./data/themes";
+import { generateReportHtml, generatePlainTextSummary } from "./utils/emailTemplate";
 import { 
   getWeekId, 
   getWeekRangeLabel, 
@@ -462,10 +463,64 @@ export default function App() {
       "success"
     );
 
-    // Open email report modal automatically if configured
+    // Deliver email report automatically if configured
     if (updatedSettings.autoEmailReport || isManual) {
-      setSelectedReportForView(newReport);
-      setIsEmailModalOpen(true);
+      if (!isManual && updatedSettings.studentEmail && updatedSettings.smtpConfig?.host && updatedSettings.smtpConfig?.user) {
+        // Generate AI fallback summary so it's not empty
+        const completionRate = newReport.totalTargetHours > 0 ? Math.round((newReport.totalHours / newReport.totalTargetHours) * 100) : 0;
+        const grade = completionRate >= 90 ? "A" : completionRate >= 75 ? "B+" : completionRate >= 50 ? "B" : "C+";
+        const topCourse = [...newReport.coursesSnapshot].sort((a, b) => b.hoursCompleted - a.hoursCompleted)[0];
+        const aiSummary = {
+          executiveSummary: `During ${archiveWeekLabel}, you logged ${newReport.totalHours} hours across ${newReport.coursesSnapshot.length} courses (${completionRate}% weekly target completion rate).`,
+          grade,
+          highlightSubject: topCourse ? `${topCourse.name} (${topCourse.hoursCompleted}h)` : "University Study",
+          attentionSubject: newReport.coursesSnapshot.find(c => c.hoursCompleted < (c.targetHours || 12) * 0.6)?.name || "All courses in healthy pacing",
+          strengths: [
+            `Maintained tracking across ${newReport.coursesSnapshot.length} active courses.`,
+            "Recorded study hours consistently before the weekly deadline."
+          ],
+          actionablePlan: [
+            "Plan 2-hour morning deep work blocks for higher focus.",
+            "Review key concept flashcards or problem sets within 24 hours of each lecture."
+          ],
+          encouragementQuote: "Consistency is the DNA of academic mastery.",
+          aiGenerated: false,
+        };
+        const reportWithSummary = { ...newReport, aiSummary };
+        const htmlContent = generateReportHtml(reportWithSummary, updatedSettings);
+        const textContent = generatePlainTextSummary(reportWithSummary, updatedSettings);
+        
+        fetch("/api/send-email-report", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            toEmail: updatedSettings.studentEmail,
+            subject: `Weekly University Course Progress Report: ${archiveWeekLabel} - ${updatedSettings.studentName}`,
+            htmlContent,
+            textContent,
+            weekLabel: archiveWeekLabel,
+            smtpConfig: updatedSettings.smtpConfig,
+            stats: {
+              totalHours: newReport.totalHours,
+              totalTargetHours: newReport.totalTargetHours,
+              completionPercentage: completionRate,
+            }
+          })
+        }).then(res => res.json()).then(data => {
+            if (data.success) {
+               showToast(`Automatic weekly report emailed to ${updatedSettings.studentEmail}`, "success");
+            } else {
+               setSelectedReportForView(newReport);
+               setIsEmailModalOpen(true);
+            }
+        }).catch(() => {
+           setSelectedReportForView(newReport);
+           setIsEmailModalOpen(true);
+        });
+      } else {
+        setSelectedReportForView(newReport);
+        setIsEmailModalOpen(true);
+      }
     }
   };
 
