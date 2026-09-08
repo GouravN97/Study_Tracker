@@ -10,6 +10,7 @@ import { ResetConfirmModal } from "./components/ResetConfirmModal";
 import { SettingsModal } from "./components/SettingsModal";
 import { AppearanceModal } from "./components/AppearanceModal";
 import { DailyNotepad } from "./components/DailyNotepad";
+import { PreviousWeeksDashboardModal } from "./components/PreviousWeeksDashboardModal";
 import { Course, WeeklyReport, UserSettings } from "./types";
 import { INITIAL_COURSES, DEFAULT_USER_SETTINGS } from "./data/defaultCourses";
 import { FONT_OPTIONS, BACKGROUND_PRESETS, BackgroundPreset } from "./data/themes";
@@ -22,7 +23,7 @@ import {
   getPreviousWeekRangeLabel,
   getPreviousMondayMidnight
 } from "./utils/dateUtils";
-import { Plus, BookOpen, Sparkles, Check, AlertCircle, Palette } from "lucide-react";
+import { Plus, BookOpen, Sparkles, Check, AlertCircle, Palette, History } from "lucide-react";
 import confetti from "canvas-confetti";
 
 export default function App() {
@@ -99,6 +100,7 @@ export default function App() {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAppearanceModalOpen, setIsAppearanceModalOpen] = useState(false);
+  const [isNotesDashboardModalOpen, setIsNotesDashboardModalOpen] = useState(false);
 
   // Filters & Search
   const [selectedFilter, setSelectedFilter] = useState("all");
@@ -687,6 +689,15 @@ export default function App() {
 
               <div className="flex items-center space-x-2">
                 <button
+                  id="btn-past-notes-dashboard"
+                  onClick={() => setIsNotesDashboardModalOpen(true)}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Past Stats & Notes</span>
+                  <span className="sm:hidden">Past Stats</span>
+                </button>
+                <button
                   id="btn-add-subject-body"
                   onClick={() => {
                     setEditingCourse(null);
@@ -854,6 +865,14 @@ export default function App() {
             }
           }}
           onOpenAppearance={() => setIsAppearanceModalOpen(true)}
+        />
+      )}
+
+      {isNotesDashboardModalOpen && (
+        <PreviousWeeksDashboardModal
+          isOpen={isNotesDashboardModalOpen}
+          onClose={() => setIsNotesDashboardModalOpen(false)}
+          reports={weeklyReports}
         />
       )}
 
