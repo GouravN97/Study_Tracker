@@ -117,7 +117,6 @@ export const CourseCard: React.FC<CourseCardProps> = ({
             className="absolute inset-0 bg-slate-950 transition-opacity duration-300"
             style={{ opacity: dimOpacity }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/60" />
         </div>
       )}
 
