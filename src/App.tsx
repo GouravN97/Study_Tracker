@@ -531,9 +531,9 @@ export default function App() {
     );
   };
 
-  const handleUpdateNotes = (id: string, notes: string) => {
+  const handleUpdateNotes = (id: string, noteList: import("./types").CourseNote[]) => {
     setCourses(prev =>
-      prev.map(c => (c.id === id ? { ...c, notes, lastUpdated: new Date().toISOString() } : c))
+      prev.map(c => (c.id === id ? { ...c, noteList, notes: undefined, lastUpdated: new Date().toISOString() } : c))
     );
     showToast("Study notes updated for course.", "info");
   };

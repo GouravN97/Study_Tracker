@@ -134,12 +134,20 @@ export const PreviousWeeksDashboardModal: React.FC<PreviousWeeksDashboardModalPr
                                       <FileText className="w-3.5 h-3.5" />
                                       <span>Notes & Topics</span>
                                     </div>
-                                    {course.notes ? (
-                                      <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
+                                    {course.noteList && course.noteList.length > 0 ? (
+                                      <ul className="space-y-1.5 list-disc pl-4 mt-2 text-xs text-slate-700">
+                                        {course.noteList.map(note => (
+                                          <li key={note.id} className="leading-relaxed">
+                                            {note.text}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : course.notes ? (
+                                      <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed mt-2">
                                         {course.notes}
                                       </p>
                                     ) : (
-                                      <p className="text-xs text-slate-400 italic">No notes recorded for this subject.</p>
+                                      <p className="text-xs text-slate-400 italic mt-2">No notes recorded for this subject.</p>
                                     )}
                                   </div>
                                 </div>

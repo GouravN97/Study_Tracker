@@ -13,13 +13,19 @@ export function generateReportHtml(report: WeeklyReport, settings: UserSettings)
     const badgeColor = isCompleted ? "#10b981" : rate >= 60 ? accent.hex : "#f59e0b";
     const statusText = isCompleted ? "GOAL REACHED (100%)" : `${rate}% COMPLETED`;
 
+    const noteHTML = course.noteList && course.noteList.length > 0
+      ? `<div style="font-size: 12px; color: #475569; margin-top: 4px; background: #f8fafc; padding: 6px 10px; border-radius: 4px;"><ul style="margin: 0; padding-left: 16px;">${course.noteList.map(n => `<li style="margin-bottom: 2px;">${n.text}</li>`).join('')}</ul></div>`
+      : course.notes 
+        ? `<div style="font-size: 12px; color: #475569; margin-top: 4px; font-style: italic; background: #f8fafc; padding: 4px 8px; border-radius: 4px;">"${course.notes}"</div>` 
+        : '';
+
     return `
       <tr>
         <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
           <span style="display: inline-block; padding: 2px 6px; font-size: 11px; font-weight: 700; font-family: monospace; border-radius: 4px; background-color: rgba(${accent.rgb}, 0.15); color: ${accent.hex}; border: 1px solid rgba(${accent.rgb}, 0.3); margin-right: 6px;">${course.code}</span>
           <strong style="color: #1e293b; font-size: 15px;">${course.name}</strong>
           ${course.instructor ? `<div style="font-size: 12px; color: #64748b; margin-top: 2px;">Instructor: ${course.instructor}</div>` : ''}
-          ${course.notes ? `<div style="font-size: 12px; color: #475569; margin-top: 4px; font-style: italic; background: #f8fafc; padding: 4px 8px; border-radius: 4px;">"${course.notes}"</div>` : ''}
+          ${noteHTML}
         </td>
         <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
           <span style="font-weight: 700; color: #0f172a; font-size: 15px;">${course.hoursCompleted}</span>
@@ -187,7 +193,14 @@ export function generatePlainTextSummary(report: WeeklyReport, settings: UserSet
     const rate = Math.round((c.hoursCompleted / c.targetHours) * 100);
     text += `• [${c.code}] ${c.name}: ${c.hoursCompleted}/${c.targetHours}h (${rate}%)\n`;
     if (c.instructor) text += `  Instructor: ${c.instructor}\n`;
-    if (c.notes) text += `  Notes: ${c.notes}\n`;
+    if (c.noteList && c.noteList.length > 0) {
+      text += `  Notes:\n`;
+      c.noteList.forEach(n => {
+        text += `    - ${n.text}\n`;
+      });
+    } else if (c.notes) {
+      text += `  Notes: ${c.notes}\n`;
+    }
   });
 
   text += `\n======================================================\n`;

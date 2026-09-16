@@ -1,3 +1,9 @@
+export interface CourseNote {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface Course {
   id: string;
   name: string;
@@ -7,7 +13,8 @@ export interface Course {
   targetHours: number; // 12 hours
   color: string; // Tailwind color theme identifier
   category?: string;
-  notes?: string;
+  notes?: string; // Legacy single note
+  noteList?: CourseNote[];
   backgroundImage?: string; // URL or base64 data image
   backgroundDim?: number; // 0 to 90 opacity overlay (default ~60%)
   lastUpdated?: string;
