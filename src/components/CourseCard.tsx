@@ -103,11 +103,6 @@ export const CourseCard: React.FC<CourseCardProps> = ({
     }
   };
 
-  const handleSaveNotes = () => {
-    onUpdateNotes(course.id, notesText);
-    setIsEditingNotes(false);
-  };
-
   return (
     <div 
       id={`course-card-${course.id}`}
