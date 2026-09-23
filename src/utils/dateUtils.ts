@@ -125,3 +125,19 @@ export function getCountdownToNextMonday(now: Date = new Date()): {
     percentageElapsed,
   };
 }
+
+/**
+ * Gets the number of days elapsed in the current week (1 for Monday through 7 for Sunday).
+ */
+export function getDaysElapsedInCurrentWeek(now: Date = new Date()): number {
+  const day = now.getDay(); // 0 is Sunday, 1 is Monday ... 6 is Saturday
+  return day === 0 ? 7 : day;
+}
+
+/**
+ * Gets the number of days remaining in the current week including today (7 - daysElapsed + 1).
+ */
+export function getDaysRemainingInCurrentWeek(now: Date = new Date()): number {
+  const elapsed = getDaysElapsedInCurrentWeek(now);
+  return Math.max(1, 7 - elapsed + 1);
+}
