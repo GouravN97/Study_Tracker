@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Calendar,
 } from "lucide-react";
+import { safeStorage, STORAGE_KEYS } from "../utils/storageUtils";
 
 export interface DailyTask {
   id: string;
@@ -20,7 +21,7 @@ export interface DailyTask {
   createdAt: string;
 }
 
-const STORAGE_KEY = "uni_daily_notepad_tasks";
+const STORAGE_KEY = STORAGE_KEYS.DAILY_NOTEPAD;
 
 /** Helper: format Date to local YYYY-MM-DD string */
 function getLocalDateStr(d: Date = new Date()): string {
@@ -58,10 +59,9 @@ export function DailyNotepad() {
   // Load and sanitize tasks from localStorage
   const [tasks, setTasks] = useState<DailyTask[]>(() => {
     try {
-      if (typeof window !== "undefined" && window.localStorage) {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored !== null) {
-          const parsed = JSON.parse(stored);
+      const stored = safeStorage.getItem(STORAGE_KEY);
+      if (stored !== null) {
+        const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) {
             const sanitized: DailyTask[] = [];
             for (const item of parsed) {
@@ -108,7 +108,6 @@ export function DailyNotepad() {
             return sanitized;
           }
         }
-      }
     } catch (e) {
       console.warn("Failed to parse initial daily tasks:", e);
     }
@@ -147,13 +146,7 @@ export function DailyNotepad() {
       (t): t is DailyTask => Boolean(t && typeof t === "object" && t.id && t.text && t.date)
     );
     setTasks(sanitized);
-    try {
-      if (typeof window !== "undefined" && window.localStorage) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
-      }
-    } catch (e) {
-      console.warn("Failed to persist daily tasks:", e);
-    }
+    safeStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
   };
 
   // Close notepad when clicking outside or pressing Escape

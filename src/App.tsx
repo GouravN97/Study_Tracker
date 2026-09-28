@@ -24,6 +24,7 @@ import {
   getPreviousWeekRangeLabel,
   getPreviousMondayMidnight
 } from "./utils/dateUtils";
+import { safeStorage, safeSaveWeeklyReports, STORAGE_KEYS } from "./utils/storageUtils";
 import { Plus, BookOpen, Sparkles, Check, AlertCircle, Palette, History } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -36,14 +37,12 @@ export default function App() {
   // State initialization with localStorage fallback
   const [courses, setCourses] = useState<Course[]>(() => {
     try {
-      if (typeof window !== "undefined" && window.localStorage) {
-        const saved = localStorage.getItem("uni_courses_data");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const valid = parsed.filter(c => Boolean(c && typeof c === "object" && c.id && c.name));
-            if (valid.length > 0) return valid;
-          }
+      const saved = safeStorage.getItem(STORAGE_KEYS.COURSES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter(c => Boolean(c && typeof c === "object" && c.id && c.name));
+          if (valid.length > 0) return valid;
         }
       }
     } catch (e) {
@@ -54,13 +53,11 @@ export default function App() {
 
   const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>(() => {
     try {
-      if (typeof window !== "undefined" && window.localStorage) {
-        const saved = localStorage.getItem("uni_weekly_reports");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            return parsed.filter(r => Boolean(r && typeof r === "object" && r.id));
-          }
+      const saved = safeStorage.getItem(STORAGE_KEYS.WEEKLY_REPORTS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(r => Boolean(r && typeof r === "object" && r.id));
         }
       }
     } catch (e) {
@@ -71,13 +68,11 @@ export default function App() {
 
   const [settings, setSettings] = useState<UserSettings>(() => {
     try {
-      if (typeof window !== "undefined" && window.localStorage) {
-        const saved = localStorage.getItem("uni_user_settings");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-            return { ...DEFAULT_USER_SETTINGS, ...parsed };
-          }
+      const saved = safeStorage.getItem(STORAGE_KEYS.USER_SETTINGS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return { ...DEFAULT_USER_SETTINGS, ...parsed };
         }
       }
     } catch (e) {
@@ -165,17 +160,17 @@ export default function App() {
             if (Array.isArray(json.data.courses)) {
               effectiveCourses = json.data.courses;
               setCourses(json.data.courses);
-              localStorage.setItem("uni_courses_data", JSON.stringify(json.data.courses));
+              safeStorage.setItem(STORAGE_KEYS.COURSES, JSON.stringify(json.data.courses));
             }
             if (Array.isArray(json.data.weeklyReports)) {
               effectiveReports = json.data.weeklyReports;
               setWeeklyReports(json.data.weeklyReports);
-              localStorage.setItem("uni_weekly_reports", JSON.stringify(json.data.weeklyReports));
+              safeSaveWeeklyReports(json.data.weeklyReports);
             }
             if (json.data.settings) {
               effectiveSettings = { ...DEFAULT_USER_SETTINGS, ...json.data.settings };
               setSettings(prev => ({ ...prev, ...json.data.settings }));
-              localStorage.setItem("uni_user_settings", JSON.stringify(effectiveSettings));
+              safeStorage.setItem(STORAGE_KEYS.USER_SETTINGS, JSON.stringify(effectiveSettings));
             }
             if (json.data.lastSaved) {
               setLastSavedTime(json.data.lastSaved);
@@ -199,17 +194,17 @@ export default function App() {
                   if (Array.isArray(resetJson.data.courses)) {
                     effectiveCourses = resetJson.data.courses;
                     setCourses(resetJson.data.courses);
-                    localStorage.setItem("uni_courses_data", JSON.stringify(resetJson.data.courses));
+                    safeStorage.setItem(STORAGE_KEYS.COURSES, JSON.stringify(resetJson.data.courses));
                   }
                   if (Array.isArray(resetJson.data.weeklyReports)) {
                     effectiveReports = resetJson.data.weeklyReports;
                     setWeeklyReports(resetJson.data.weeklyReports);
-                    localStorage.setItem("uni_weekly_reports", JSON.stringify(resetJson.data.weeklyReports));
+                    safeSaveWeeklyReports(resetJson.data.weeklyReports);
                   }
                   if (resetJson.data.settings) {
                     effectiveSettings = { ...DEFAULT_USER_SETTINGS, ...resetJson.data.settings };
                     setSettings(prev => ({ ...prev, ...resetJson.data.settings }));
-                    localStorage.setItem("uni_user_settings", JSON.stringify(effectiveSettings));
+                    safeStorage.setItem(STORAGE_KEYS.USER_SETTINGS, JSON.stringify(effectiveSettings));
                   }
                 }
               }
@@ -258,10 +253,10 @@ export default function App() {
       return;
     }
 
-    // Save to localStorage immediately on modification
-    localStorage.setItem("uni_courses_data", JSON.stringify(courses));
-    localStorage.setItem("uni_weekly_reports", JSON.stringify(weeklyReports));
-    localStorage.setItem("uni_user_settings", JSON.stringify(settings));
+    // Save to safe storage immediately on modification
+    safeStorage.setItem(STORAGE_KEYS.COURSES, JSON.stringify(courses));
+    safeSaveWeeklyReports(weeklyReports);
+    safeStorage.setItem(STORAGE_KEYS.USER_SETTINGS, JSON.stringify(settings));
 
     // Debounced disk save after user stops typing/dragging
     const timeout = setTimeout(async () => {
@@ -312,15 +307,15 @@ export default function App() {
 
       if (Array.isArray(parsed.courses)) {
         setCourses(parsed.courses);
-        localStorage.setItem("uni_courses_data", JSON.stringify(parsed.courses));
+        safeStorage.setItem(STORAGE_KEYS.COURSES, JSON.stringify(parsed.courses));
       }
       if (Array.isArray(parsed.weeklyReports)) {
         setWeeklyReports(parsed.weeklyReports);
-        localStorage.setItem("uni_weekly_reports", JSON.stringify(parsed.weeklyReports));
+        safeSaveWeeklyReports(parsed.weeklyReports);
       }
       if (parsed.settings) {
         setSettings(prev => ({ ...prev, ...parsed.settings }));
-        localStorage.setItem("uni_user_settings", JSON.stringify({ ...DEFAULT_USER_SETTINGS, ...parsed.settings }));
+        safeStorage.setItem(STORAGE_KEYS.USER_SETTINGS, JSON.stringify({ ...DEFAULT_USER_SETTINGS, ...parsed.settings }));
       }
 
       // Persist imported data to local disk file immediately
@@ -424,10 +419,10 @@ export default function App() {
     setWeeklyReports(updatedReports);
     setSettings(updatedSettings);
 
-    // Sync to localStorage
-    localStorage.setItem("uni_courses_data", JSON.stringify(resetCourses));
-    localStorage.setItem("uni_weekly_reports", JSON.stringify(updatedReports));
-    localStorage.setItem("uni_user_settings", JSON.stringify(updatedSettings));
+    // Sync to safe storage
+    safeStorage.setItem(STORAGE_KEYS.COURSES, JSON.stringify(resetCourses));
+    safeSaveWeeklyReports(updatedReports);
+    safeStorage.setItem(STORAGE_KEYS.USER_SETTINGS, JSON.stringify(updatedSettings));
 
     // 5. Store archive to local folder file (data/archives/week-[ID].json) and save fresh state to disk
     try {
