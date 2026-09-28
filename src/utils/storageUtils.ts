@@ -8,6 +8,7 @@ export const STORAGE_KEYS = {
   WEEKLY_REPORTS: "uni_weekly_reports",
   USER_SETTINGS: "uni_user_settings",
   DAILY_NOTEPAD: "uni_daily_notepad_tasks",
+  LOCAL_MODIFIED_AT: "uni_local_modified_at",
 } as const;
 
 /**
