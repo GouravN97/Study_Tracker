@@ -13,6 +13,8 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json({ limit: "5mb" }));
+// navigator.sendBeacon (used to flush unsaved changes when the window closes) posts text/plain
+app.use(express.text({ type: "text/plain", limit: "5mb" }));
 
 // Initialize Gemini SDK with User-Agent header for telemetry
 const getGeminiClient = () => {
@@ -227,7 +229,15 @@ app.get("/api/data", (req, res) => {
 // Save user study data to local file
 app.post("/api/data", (req, res) => {
   try {
-    const { courses, weeklyReports, settings } = req.body || {};
+    let body = req.body;
+    if (typeof body === "string") {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        return res.status(400).json({ error: "Invalid JSON payload" });
+      }
+    }
+    const { courses, weeklyReports, settings } = body || {};
     if (!courses && !settings && !weeklyReports) {
       return res.status(400).json({ error: "No data provided to save" });
     }

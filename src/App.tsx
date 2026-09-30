@@ -156,7 +156,27 @@ export default function App() {
           let effectiveReports = weeklyReports;
           let effectiveSettings = settings;
 
-          if (json.exists && json.data) {
+          // If this browser holds edits newer than the disk file (e.g. the window was closed
+          // before the debounced save reached the server), keep them instead of overwriting.
+          const localModifiedAt = Date.parse(safeStorage.getItem(STORAGE_KEYS.LOCAL_MODIFIED_AT) || "");
+          const serverSavedAt = Date.parse(json.data?.lastSaved || "");
+          const localIsNewer =
+            json.exists &&
+            json.data &&
+            !isNaN(localModifiedAt) &&
+            (isNaN(serverSavedAt) || localModifiedAt > serverSavedAt);
+
+          if (localIsNewer) {
+            console.log("[Storage] Local changes are newer than the disk file. Restoring them and re-syncing.");
+            // localStorage only caches a trimmed copy of weekly reports, so keep the full history from disk
+            if (Array.isArray(json.data.weeklyReports)) {
+              effectiveReports = json.data.weeklyReports;
+              setWeeklyReports(json.data.weeklyReports);
+            }
+            if (json.data.lastSaved) {
+              setLastSavedTime(json.data.lastSaved);
+            }
+          } else if (json.exists && json.data) {
             if (Array.isArray(json.data.courses)) {
               effectiveCourses = json.data.courses;
               setCourses(json.data.courses);
@@ -216,12 +236,15 @@ export default function App() {
             effectiveSettings.lastResetWeekId = thisWeekNow;
           }
 
-          // Initialize snapshot ref with loaded state so initial load does not trigger auto-save
-          lastSavedSnapshotRef.current = JSON.stringify({
-            courses: effectiveCourses,
-            weeklyReports: effectiveReports,
-            settings: effectiveSettings,
-          });
+          // Initialize snapshot ref with loaded state so initial load does not trigger auto-save.
+          // When restoring newer local edits, leave it empty so they are written back to disk.
+          lastSavedSnapshotRef.current = localIsNewer
+            ? ""
+            : JSON.stringify({
+                courses: effectiveCourses,
+                weeklyReports: effectiveReports,
+                settings: effectiveSettings,
+              });
         }
       } catch (err) {
         console.warn("Error loading data from local disk:", err);
@@ -257,6 +280,7 @@ export default function App() {
     safeStorage.setItem(STORAGE_KEYS.COURSES, JSON.stringify(courses));
     safeSaveWeeklyReports(weeklyReports);
     safeStorage.setItem(STORAGE_KEYS.USER_SETTINGS, JSON.stringify(settings));
+    safeStorage.setItem(STORAGE_KEYS.LOCAL_MODIFIED_AT, new Date().toISOString());
 
     // Debounced disk save after user stops typing/dragging
     const timeout = setTimeout(async () => {
@@ -268,6 +292,40 @@ export default function App() {
 
     return () => clearTimeout(timeout);
   }, [courses, weeklyReports, settings, isDataLoadedFromServer]);
+
+  // 3. Flush unsaved changes to disk when the window is closed or hidden,
+  // so edits made within the debounce window are not lost.
+  useEffect(() => {
+    if (!isDataLoadedFromServer) return;
+
+    const flushPendingChanges = () => {
+      const { courses, weeklyReports, settings } = stateRef.current;
+      const currentSnapshot = JSON.stringify({ courses, weeklyReports, settings });
+      if (currentSnapshot === lastSavedSnapshotRef.current) return;
+
+      try {
+        const payload = new Blob([currentSnapshot], { type: "text/plain" });
+        if (navigator.sendBeacon && navigator.sendBeacon("/api/data", payload)) {
+          lastSavedSnapshotRef.current = currentSnapshot;
+        }
+      } catch (err) {
+        console.warn("Could not flush pending changes on close:", err);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushPendingChanges();
+    };
+
+    window.addEventListener("pagehide", flushPendingChanges);
+    window.addEventListener("beforeunload", flushPendingChanges);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("pagehide", flushPendingChanges);
+      window.removeEventListener("beforeunload", flushPendingChanges);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isDataLoadedFromServer]);
 
   // Export Backup File Handler
   const handleExportBackup = () => {
