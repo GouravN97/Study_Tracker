@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion } from "framer-motion";
 import { 
   Check, 
   ChevronDown, 
@@ -65,6 +66,9 @@ export const CourseCard: React.FC<CourseCardProps> = ({
 
   const accent = getCourseAccent(course.color);
   const isGoalReached = course.hoursCompleted >= course.targetHours;
+  const progressPercent = course.targetHours > 0 
+    ? Math.min(100, Math.round((course.hoursCompleted / course.targetHours) * 100))
+    : 0;
 
   const hasBg = Boolean(course.backgroundImage && course.backgroundImage.trim());
   const dimOpacity = Math.max(0.15, Math.min(0.85, (course.backgroundDim ?? 50) / 100));
@@ -212,14 +216,36 @@ export const CourseCard: React.FC<CourseCardProps> = ({
           </div>
         </div>
 
-        {/* Main Interactive Hours Slider Section */}
-        <div className={`rounded-xl p-4 border space-y-4 mb-4 relative z-10 ${
+        {/* Main Interactive Hours Slider Section - Full Panel Animated Progress Gauge */}
+        <div className={`rounded-xl p-4 border space-y-4 mb-4 relative z-10 overflow-hidden ${
           hasBg 
             ? "bg-slate-950/70 border-slate-700/80 backdrop-blur-md" 
             : "bg-slate-50/80 border-slate-200/70"
         }`}>
+          {/* Framer Motion Animated Progress Fill across the entire panel matching the course theme color */}
+          <motion.div
+            className="absolute inset-y-0 left-0 pointer-events-none z-0"
+            initial={{ width: "0%" }}
+            animate={{ width: `${progressPercent}%` }}
+            transition={{ 
+              duration: 0.75, 
+              ease: [0.16, 1, 0.3, 1] 
+            }}
+            style={{
+              background: hasBg
+                ? `linear-gradient(90deg, rgba(${accent.rgb}, 0.12) 0%, rgba(${accent.rgb}, 0.32) 100%)`
+                : `linear-gradient(90deg, rgba(${accent.rgb}, 0.08) 0%, rgba(${accent.rgb}, 0.24) 100%)`,
+              borderRight: progressPercent > 0 
+                ? `2px solid rgba(${accent.rgb}, 0.85)` 
+                : "none",
+              boxShadow: progressPercent > 0 
+                ? `0 0 20px rgba(${accent.rgb}, 0.35)` 
+                : "none"
+            }}
+          />
+
           {/* Hours readout */}
-          <div className="flex items-baseline justify-between">
+          <div className="flex items-baseline justify-between relative z-10">
             <div className="flex items-center space-x-1.5">
               <Clock 
                 className="w-4 h-4 transition-colors"
@@ -230,7 +256,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
               </span>
             </div>
 
-            <div className="flex items-baseline space-x-1.5">
+            <div className="flex items-baseline space-x-2">
               <span className={`text-2xl sm:text-3xl font-black font-mono ${hasBg ? "text-white" : "text-slate-900"}`}>
                 {course.hoursCompleted.toFixed(1)}
               </span>
@@ -242,11 +268,21 @@ export const CourseCard: React.FC<CourseCardProps> = ({
               >
                 / {course.targetHours}h
               </button>
+              <span 
+                className="text-[11px] font-extrabold px-1.5 py-0.5 rounded font-mono ml-0.5"
+                style={{
+                  color: accent.hex,
+                  backgroundColor: `rgba(${accent.rgb}, 0.16)`,
+                  border: `1px solid rgba(${accent.rgb}, 0.35)`
+                }}
+              >
+                {progressPercent}%
+              </span>
             </div>
           </div>
 
           {/* Interactive Range Slider - dynamically uses the chosen Accent color */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 relative z-10">
             <input
               id={`slider-${course.id}`}
               type="range"
@@ -278,7 +314,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
           </div>
 
           {/* Quick Stepper Buttons */}
-          <div className="flex items-center justify-between gap-1 sm:gap-2 pt-1 flex-wrap">
+          <div className="flex items-center justify-between gap-1 sm:gap-2 pt-1 flex-wrap relative z-10">
             <div className="flex items-center space-x-1">
               <button
                 id={`btn-minus-1h-${course.id}`}
