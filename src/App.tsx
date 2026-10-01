@@ -25,6 +25,7 @@ import {
   getPreviousMondayMidnight
 } from "./utils/dateUtils";
 import { safeStorage, safeSaveWeeklyReports, STORAGE_KEYS } from "./utils/storageUtils";
+import { optimizeExistingMediaData } from "./utils/imageUtils";
 import { Plus, BookOpen, Sparkles, Check, AlertCircle, Palette, History } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -137,6 +138,9 @@ export default function App() {
         const json = await res.json();
         setLastSavedTime(json.savedAt || new Date().toISOString());
         return true;
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        console.warn(`[Save Status] Server returned ${res.status}:`, errJson);
       }
     } catch (err) {
       console.warn("Could not save to local disk server file:", err);
@@ -234,6 +238,28 @@ export default function App() {
           } else if (!effectiveSettings.lastResetWeekId) {
             setSettings(prev => ({ ...prev, lastResetWeekId: thisWeekNow }));
             effectiveSettings.lastResetWeekId = thisWeekNow;
+          }
+
+          // Background self-healing: if any existing stored wallpaper/cover image is oversized,
+          // optimize and compress it automatically so memory and disk footprints remain lightweight
+          try {
+            const { courses: optCourses, settings: optSettings, changed: mediaChanged } = await optimizeExistingMediaData(
+              effectiveCourses,
+              effectiveSettings
+            );
+            if (mediaChanged) {
+              console.log("[SelfHealing] Successfully compressed legacy heavy images in background.");
+              effectiveCourses = optCourses;
+              effectiveSettings = optSettings;
+              setCourses(optCourses);
+              setSettings(optSettings);
+              safeStorage.setItem(STORAGE_KEYS.COURSES, JSON.stringify(optCourses));
+              safeStorage.setItem(STORAGE_KEYS.USER_SETTINGS, JSON.stringify(optSettings));
+              // Save optimized smaller state to server file
+              saveStateToLocalDisk(optCourses, effectiveReports, optSettings);
+            }
+          } catch (optErr) {
+            console.warn("[SelfHealing] Non-blocking media optimization check:", optErr);
           }
 
           // Initialize snapshot ref with loaded state so initial load does not trigger auto-save.
@@ -450,7 +476,10 @@ export default function App() {
       totalHours,
       totalTargetHours,
       completionPercentage,
-      coursesSnapshot: JSON.parse(JSON.stringify(currentCourses)),
+      coursesSnapshot: currentCourses.map(c => ({
+        ...c,
+        backgroundImage: typeof c.backgroundImage === "string" && c.backgroundImage.startsWith("data:") ? undefined : c.backgroundImage,
+      })),
       emailSentTo: currentSettings.studentEmail || "",
       emailSentAt: now.toISOString(),
     };

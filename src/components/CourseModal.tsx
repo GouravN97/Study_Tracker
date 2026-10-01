@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, BookOpen, Clock, Tag, User, Palette, Check, Image as ImageIcon, Upload, Link, Sliders, Trash2, Pipette } from "lucide-react";
+import { X, BookOpen, Clock, Tag, User, Palette, Check, Image as ImageIcon, Upload, Link, Sliders, Trash2, Pipette, Loader2 } from "lucide-react";
 import { Course } from "../types";
 import { PRESET_BACKGROUND_IMAGES } from "../data/defaultCourses";
 import { COLOR_OPTIONS, getCourseAccent } from "../utils/colorUtils";
+import { compressImage } from "../utils/imageUtils";
 
 interface CourseModalProps {
   isOpen: boolean;
@@ -40,6 +41,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
   const [backgroundDim, setBackgroundDim] = useState<number>(() => initialCourse?.backgroundDim ?? 50);
   const [customUrlInput, setCustomUrlInput] = useState(() => initialCourse?.backgroundImage || "");
   const [bgTab, setBgTab] = useState<"presets" | "custom" | "upload">("presets");
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
@@ -81,23 +83,29 @@ export const CourseModal: React.FC<CourseModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("Please choose an image smaller than 5MB.");
+      if (file.size > 25 * 1024 * 1024) {
+        alert("Please choose an image file smaller than 25MB.");
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
-        if (result) {
-          setBackgroundImage(result);
-          setCustomUrlInput(result);
-          if (backgroundDim > 70) setBackgroundDim(50);
+      try {
+        setIsProcessingImage(true);
+        // Automatically compress course cover photo to 1000x700 resolution
+        const compressed = await compressImage(file, 1000, 700, 0.82);
+        setBackgroundImage(compressed);
+        setCustomUrlInput(compressed);
+        if (backgroundDim > 70) setBackgroundDim(50);
+      } catch (err) {
+        console.error("Failed to process course image:", err);
+        alert("Could not load image. Please select another photo.");
+      } finally {
+        setIsProcessingImage(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
         }
-      };
-      reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -489,12 +497,25 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                   className="hidden"
                 />
                 <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-300 hover:border-indigo-500 bg-slate-50 hover:bg-indigo-50/40 rounded-xl p-4 text-center cursor-pointer transition-colors"
+                  onClick={() => !isProcessingImage && fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-4 text-center transition-colors ${
+                    isProcessingImage 
+                      ? "border-indigo-400 bg-indigo-50/50 cursor-wait" 
+                      : "border-slate-300 hover:border-indigo-500 bg-slate-50 hover:bg-indigo-50/40 cursor-pointer"
+                  }`}
                 >
-                  <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1.5 group-hover:text-indigo-600" />
-                  <p className="text-xs font-bold text-slate-700">Click to upload image file</p>
-                  <p className="text-[11px] text-slate-500">Supports PNG, JPG, WebP (up to 5MB)</p>
+                  {isProcessingImage ? (
+                    <div className="flex flex-col items-center">
+                      <Loader2 className="w-6 h-6 text-indigo-600 animate-spin mb-1" />
+                      <p className="text-xs font-bold text-indigo-900">Optimizing image...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1.5 group-hover:text-indigo-600" />
+                      <p className="text-xs font-bold text-slate-700">Click to upload image file</p>
+                      <p className="text-[11px] text-slate-500">Supports PNG, JPG, WebP (up to 25MB)</p>
+                    </>
+                  )}
                 </div>
               </div>
             )}

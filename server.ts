@@ -12,9 +12,11 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-app.use(express.json({ limit: "5mb" }));
-// navigator.sendBeacon (used to flush unsaved changes when the window closes) posts text/plain
-app.use(express.text({ type: "text/plain", limit: "5mb" }));
+// Generous payload limits to prevent PayloadTooLargeError even with high-res wallpapers or backups
+app.use(express.json({ limit: "100mb" }));
+app.use(express.urlencoded({ extended: true, limit: "100mb" }));
+// navigator.sendBeacon (used to flush unsaved changes when the window closes) posts text/plain or json
+app.use(express.text({ type: ["text/plain", "application/json"], limit: "100mb" }));
 
 // Initialize Gemini SDK with User-Agent header for telemetry
 const getGeminiClient = () => {
@@ -140,6 +142,12 @@ function performServerWeeklyRollover(force: boolean = false): boolean {
     const totalTargetHours = courses.reduce((sum: number, c: any) => sum + (Number(c.targetHours) || 0), 0);
     const completionPercentage = totalTargetHours > 0 ? Math.round((totalHours / totalTargetHours) * 100) : 0;
 
+    const sanitizedCoursesSnapshot = courses.map((c: any) => ({
+      ...c,
+      // Strip heavy data:image base64 wallpapers from historical snapshots to keep file size compact
+      backgroundImage: typeof c.backgroundImage === "string" && c.backgroundImage.startsWith("data:") ? undefined : c.backgroundImage,
+    }));
+
     const archiveReport = {
       id: `report-${archiveWeekId}-${Date.now()}`,
       weekId: archiveWeekId,
@@ -150,7 +158,7 @@ function performServerWeeklyRollover(force: boolean = false): boolean {
       totalHours,
       totalTargetHours,
       completionPercentage,
-      coursesSnapshot: JSON.parse(JSON.stringify(courses)),
+      coursesSnapshot: sanitizedCoursesSnapshot,
       emailSentTo: settings.studentEmail || "",
       emailSentAt: new Date().toISOString(),
       archivedBy: force ? "manual_trigger" : "automatic_monday_rollover",
@@ -961,6 +969,25 @@ exit /b
   res.setHeader("Content-Type", "application/x-bat");
   res.setHeader("Content-Disposition", 'attachment; filename="Launch-University-Study-Tracker.bat"');
   res.send(batContent);
+});
+
+// Express error-handling middleware (catches body-parser PayloadTooLargeError, invalid JSON, etc.)
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err?.type === "entity.too.large" || err?.status === 413) {
+    console.warn(`[Server Warning] Request payload too large on ${req.method} ${req.path} (${err.message})`);
+    return res.status(413).json({
+      error: "Payload too large",
+      message: "The request payload exceeds the allowed limit. Please use compressed images.",
+    });
+  }
+  if (err?.type === "entity.parse.failed" || err instanceof SyntaxError) {
+    return res.status(400).json({
+      error: "Invalid JSON format",
+      message: err?.message,
+    });
+  }
+  console.error("[Server Error]:", err);
+  return res.status(500).json({ error: "Internal server error", message: err?.message });
 });
 
 // Global process error containment to prevent abrupt process termination

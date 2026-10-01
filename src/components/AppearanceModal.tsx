@@ -12,10 +12,12 @@ import {
   Sun, 
   Moon,
   Trash2,
-  Eye
+  Eye,
+  Loader2
 } from "lucide-react";
 import { UserSettings } from "../types";
 import { FONT_OPTIONS, BACKGROUND_PRESETS, FontOption, BackgroundPreset } from "../data/themes";
+import { compressImage } from "../utils/imageUtils";
 
 interface AppearanceModalProps {
   isOpen: boolean;
@@ -32,6 +34,7 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<"fonts" | "backgrounds" | "custom-bg">("backgrounds");
   const [customUrlInput, setCustomUrlInput] = useState(settings.customBackgroundUrl || "");
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -55,24 +58,30 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
     onUpdateSettings({ backgroundBlur: val });
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 8 * 1024 * 1024) {
-        alert("Please choose an image under 8MB.");
+      if (file.size > 30 * 1024 * 1024) {
+        alert("Please choose an image file under 30MB.");
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const result = ev.target?.result as string;
-        if (result) {
-          onUpdateSettings({
-            backgroundStyle: "custom",
-            customBackgroundUrl: result,
-          });
+      try {
+        setIsProcessingImage(true);
+        // Automatically compress and resize wallpaper to optimal 1920x1080 resolution
+        const compressed = await compressImage(file, 1920, 1080, 0.82);
+        onUpdateSettings({
+          backgroundStyle: "custom",
+          customBackgroundUrl: compressed,
+        });
+      } catch (err) {
+        console.error("Failed to process wallpaper image:", err);
+        alert("Could not process this image. Please try a different photo.");
+      } finally {
+        setIsProcessingImage(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
         }
-      };
-      reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -471,16 +480,34 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
                 />
 
                 <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-300 hover:border-indigo-500 bg-slate-50 hover:bg-indigo-50/30 rounded-2xl p-6 text-center cursor-pointer transition-colors"
+                  onClick={() => !isProcessingImage && fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-6 text-center transition-colors ${
+                    isProcessingImage 
+                      ? "border-indigo-400 bg-indigo-50/50 cursor-wait" 
+                      : "border-slate-300 hover:border-indigo-500 bg-slate-50 hover:bg-indigo-50/30 cursor-pointer"
+                  }`}
                 >
-                  <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2 group-hover:text-indigo-600" />
-                  <p className="text-sm font-bold text-slate-800">
-                    Click to browse wallpaper from your device
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Supports high-resolution PNG, JPG, WebP photos (up to 8MB)
-                  </p>
+                  {isProcessingImage ? (
+                    <div className="flex flex-col items-center">
+                      <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-2" />
+                      <p className="text-sm font-bold text-indigo-900">
+                        Optimizing & Compressing Wallpaper...
+                      </p>
+                      <p className="text-xs text-indigo-600 mt-1">
+                        Resizing high-res image for ultra-smooth performance
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2 group-hover:text-indigo-600" />
+                      <p className="text-sm font-bold text-slate-800">
+                        Click to browse wallpaper from your device
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Supports high-resolution PNG, JPG, WebP photos (up to 30MB)
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
 
