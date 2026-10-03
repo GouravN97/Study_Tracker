@@ -331,24 +331,24 @@ export function DailyNotepad() {
             setSelectedDate(todayStr); // Always open directly to today
             setIsOpen((prev) => !prev);
           }}
-          className={`group flex items-center bg-amber-50 hover:bg-amber-100 text-amber-900 border-y border-r border-amber-300/80 shadow-md hover:shadow-lg rounded-r-xl transition-all duration-200 cursor-pointer ${
+          className={`group flex items-center bg-lemon text-ink border-[2.5px] border-l-0 border-ink shadow-doodle rounded-r-xl transition-all duration-200 cursor-pointer ${
             isOpen
-              ? "pl-2 pr-3 py-2 ring-2 ring-amber-400 bg-amber-100"
-              : "pl-2 pr-2.5 py-2 hover:translate-x-0.5"
+              ? "pl-2 pr-3 py-2 bg-tangerine"
+              : "pl-2 pr-2.5 py-2 hover:translate-x-1"
           }`}
           title="Open Daily To-Do Notepad"
           aria-label="Daily To-Do List Notepad"
         >
           <div className="relative flex items-center justify-center">
-            <NotebookPen className="w-5 h-5 text-amber-800 transition-transform group-hover:scale-110" />
+            <NotebookPen className="w-5 h-5 transition-transform group-hover:-rotate-12 group-hover:scale-110" />
             {todayPendingCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 flex items-center justify-center min-w-[17px] h-[17px] px-1 bg-amber-600 text-white text-[10px] font-bold rounded-full shadow-xs border border-white">
+              <span className="absolute -top-1.5 -right-2 flex items-center justify-center min-w-[17px] h-[17px] px-1 bg-bubblegum text-ink text-[10px] font-bold rounded-full border-2 border-ink">
                 {todayPendingCount}
               </span>
             )}
           </div>
 
-          <span className="hidden md:inline-block ml-2 text-xs font-bold font-handwriting text-amber-950 tracking-wide text-base leading-none">
+          <span className="hidden md:inline-block ml-2 font-bold text-sm leading-none">
             To-Do
           </span>
         </button>
@@ -358,13 +358,13 @@ export function DailyNotepad() {
       {isOpen && (
         <div
           ref={notepadRef}
-          className="fixed left-2 sm:left-4 top-20 sm:top-24 z-50 w-[calc(100vw-1rem)] max-w-[390px] sm:max-w-[430px] max-h-[85vh] flex flex-col rounded-xl overflow-hidden shadow-2xl shadow-stone-800/30 border border-yellow-400/80 animate-in fade-in slide-in-from-left-4 duration-200"
+          className="fixed left-2 sm:left-4 top-20 sm:top-24 z-50 w-[calc(100vw-1rem)] max-w-[390px] sm:max-w-[430px] max-h-[85vh] flex flex-col rounded-2xl overflow-hidden border-[3px] border-ink shadow-doodle-lg animate-doodle-pop"
           style={{
             transformOrigin: "top left",
           }}
         >
           {/* Top Yellow Bar with Date Navigation & Quick Day Switcher */}
-          <div className="bg-yellow-400 border-b border-yellow-500 text-yellow-950 flex flex-col">
+          <div className="bg-lemon border-b-[3px] border-ink text-ink flex flex-col">
             {/* Top Row: Navigation Controls & Close */}
             <div className="px-3 py-2 flex items-center justify-between">
               {/* Day Nav: Prev, Today, Next */}

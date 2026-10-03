@@ -2,20 +2,17 @@ import React, { useState, useRef } from "react";
 import { 
   X, 
   Palette, 
-  Type, 
   Image as ImageIcon, 
   Check, 
   Sliders, 
   Upload, 
   Link as LinkIcon, 
-  Sparkles, 
   Sun, 
   Moon,
   Trash2,
-  Eye
 } from "lucide-react";
 import { UserSettings } from "../types";
-import { FONT_OPTIONS, BACKGROUND_PRESETS, FontOption, BackgroundPreset } from "../data/themes";
+import { BACKGROUND_PRESETS, BackgroundPreset, DEFAULT_BACKGROUND_ID, resolveBackgroundPreset } from "../data/themes";
 
 interface AppearanceModalProps {
   isOpen: boolean;
@@ -30,18 +27,16 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
   settings,
   onUpdateSettings,
 }) => {
-  const [activeTab, setActiveTab] = useState<"fonts" | "backgrounds" | "custom-bg">("backgrounds");
+  const [activeTab, setActiveTab] = useState<"backgrounds" | "custom-bg">(
+    settings.backgroundStyle === "custom" ? "custom-bg" : "backgrounds"
+  );
   const [customUrlInput, setCustomUrlInput] = useState(settings.customBackgroundUrl || "");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
-  const currentFont = FONT_OPTIONS.find(f => f.id === (settings.fontFamily || "plus-jakarta")) || FONT_OPTIONS[0];
-  const currentBg = BACKGROUND_PRESETS.find(b => b.id === (settings.backgroundStyle || "slate")) || BACKGROUND_PRESETS[0];
-
-  const handleFontSelect = (fontId: string) => {
-    onUpdateSettings({ fontFamily: fontId });
-  };
+  const isCustomActive = settings.backgroundStyle === "custom" && Boolean(settings.customBackgroundUrl);
+  const currentBg = resolveBackgroundPreset(settings.backgroundStyle);
 
   const handleBgSelect = (bgId: string) => {
     onUpdateSettings({ backgroundStyle: bgId });
@@ -85,380 +80,114 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
     }
   };
 
+  const renderPresetTile = (bg: BackgroundPreset) => {
+    const isSelected = !isCustomActive && currentBg.id === bg.id;
+    const isDark = bg.themeMode === "dark";
+    return (
+      <button
+        key={bg.id}
+        type="button"
+        onClick={() => handleBgSelect(bg.id)}
+        className={`doodle-btn relative h-28 p-0 overflow-hidden flex-col items-stretch justify-end text-left ${
+          isSelected ? "ring-4 ring-lemon" : ""
+        }`}
+        style={{ ...bg.style, backgroundSize: "180px 180px, 14px 14px" }}
+      >
+        {isSelected && (
+          <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-lemon border-2 border-ink flex items-center justify-center">
+            <Check className="w-3.5 h-3.5" />
+          </span>
+        )}
+        <span className={`m-2 px-2 py-1 rounded-lg border-2 border-ink ${isDark ? "bg-ink text-white" : "bg-white"}`}>
+          <span className="block text-xs font-bold leading-tight">{bg.name}</span>
+          <span className="flex gap-1 mt-1">
+            {bg.swatches.map((c) => (
+              <span key={c} className="w-3 h-3 rounded-full border border-ink" style={{ backgroundColor: c }} />
+            ))}
+          </span>
+        </span>
+      </button>
+    );
+  };
+
+  const tabClass = (isActive: boolean) =>
+    `doodle-btn px-3 py-1.5 text-xs sm:text-sm ${isActive ? "bg-lemon" : "bg-white shadow-none hover:shadow-doodle-sm"}`;
+
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm"
+      className="doodle-modal-overlay flex items-center justify-center p-3 sm:p-4"
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="doodle-modal max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/70 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b-[3px] border-ink bg-grape shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
+            <div className="w-9 h-9 rounded-xl bg-white border-2 border-ink shadow-doodle-sm flex items-center justify-center -rotate-6">
               <Palette className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-                Fonts & Background Theme
+              <h2 className="text-lg sm:text-xl font-bold leading-tight">
+                Doodle Themes
               </h2>
-              <p className="text-xs text-slate-500">
-                Customize your typography and dashboard backdrop
+              <p className="text-xs text-ink/70">
+                Pick a doodle backdrop or bring your own wallpaper
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="doodle-btn bg-white p-1"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 px-6 bg-slate-50/40 shrink-0">
-          <button
-            onClick={() => setActiveTab("backgrounds")}
-            className={`flex items-center space-x-2 py-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer ${
-              activeTab === "backgrounds"
-                ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
+        <div className="flex gap-2 px-6 py-3 border-b-2 border-dashed border-ink/30 shrink-0">
+          <button onClick={() => setActiveTab("backgrounds")} className={tabClass(activeTab === "backgrounds")}>
             <ImageIcon className="w-4 h-4" />
-            <span>Canvas Backgrounds</span>
+            <span>Doodle Backgrounds</span>
           </button>
-          <button
-            onClick={() => setActiveTab("fonts")}
-            className={`flex items-center space-x-2 py-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer ${
-              activeTab === "fonts"
-                ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Type className="w-4 h-4" />
-            <span>Fonts & Typography</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("custom-bg")}
-            className={`flex items-center space-x-2 py-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer ${
-              activeTab === "custom-bg"
-                ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
+          <button onClick={() => setActiveTab("custom-bg")} className={tabClass(activeTab === "custom-bg")}>
             <Upload className="w-4 h-4" />
-            <span>Custom Wallpaper / Image</span>
+            <span>Custom Wallpaper</span>
           </button>
         </div>
 
         {/* Scrollable Content Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* TAB 1: BACKGROUND THEMES */}
           {activeTab === "backgrounds" && (
             <div className="space-y-6">
-              {/* Active Selection Readout */}
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div 
-                    className="w-10 h-10 rounded-lg border border-slate-300 shadow-xs flex items-center justify-center text-white"
-                    style={{
-                      backgroundColor: currentBg.previewColor,
-                      backgroundImage: currentBg.style.backgroundImage,
-                      backgroundSize: "cover",
-                    }}
-                  >
-                    <Sparkles className="w-4 h-4 drop-shadow-xs" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-slate-900">
-                      Active: {currentBg.name}
-                    </span>
-                    <p className="text-[11px] text-slate-500">{currentBg.description}</p>
-                  </div>
-                </div>
-
-                <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-200/80 text-slate-700">
-                  {currentBg.category}
-                </span>
-              </div>
-
-              {/* Dark Palettes Section */}
-              <div className="space-y-2.5">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center space-x-1.5">
-                  <Moon className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>Dark & Midnight Canvas Themes</span>
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {BACKGROUND_PRESETS.filter(b => b.category === "Dark Palette").map((bg) => {
-                    const isSelected = settings.backgroundStyle === bg.id || (!settings.backgroundStyle && bg.id === "slate");
-                    return (
-                      <button
-                        key={bg.id}
-                        type="button"
-                        onClick={() => handleBgSelect(bg.id)}
-                        className={`p-3 rounded-xl border text-left transition-all relative overflow-hidden group cursor-pointer flex flex-col justify-between h-24 ${
-                          isSelected
-                            ? "ring-2 ring-indigo-600 border-indigo-600 shadow-md shadow-indigo-500/10"
-                            : "border-slate-200 hover:border-slate-400 hover:shadow-xs"
-                        }`}
-                        style={{
-                          backgroundColor: bg.previewColor,
-                          backgroundImage: bg.style.backgroundImage,
-                        }}
-                      >
-                        <div className="flex items-center justify-between w-full relative z-10">
-                          <span className="text-xs font-bold text-white drop-shadow-xs">
-                            {bg.name}
-                          </span>
-                          {isSelected && (
-                            <div className="w-4 h-4 rounded-full bg-indigo-500 text-white flex items-center justify-center">
-                              <Check className="w-2.5 h-2.5" />
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-slate-300 line-clamp-1 relative z-10 drop-shadow-xs">
-                          {bg.description}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Light Palettes Section */}
-              <div className="space-y-2.5">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center space-x-1.5">
-                  <Sun className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Light & Paper Canvas Themes</span>
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
-                  {BACKGROUND_PRESETS.filter(b => b.category === "Light Palette").map((bg) => {
-                    const isSelected = settings.backgroundStyle === bg.id;
-                    return (
-                      <button
-                        key={bg.id}
-                        type="button"
-                        onClick={() => handleBgSelect(bg.id)}
-                        className={`p-3 rounded-xl border text-left transition-all relative overflow-hidden group cursor-pointer flex flex-col justify-between h-20 ${
-                          isSelected
-                            ? "ring-2 ring-indigo-600 border-indigo-600 shadow-md shadow-indigo-500/10"
-                            : "border-slate-200 hover:border-slate-400 hover:shadow-xs"
-                        }`}
-                        style={{
-                          backgroundColor: bg.previewColor,
-                          backgroundImage: bg.style.backgroundImage,
-                        }}
-                      >
-                        <div className="flex items-center justify-between w-full relative z-10">
-                          <span className="text-xs font-bold text-slate-900">
-                            {bg.name}
-                          </span>
-                          {isSelected && (
-                            <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                              <Check className="w-2.5 h-2.5" />
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-slate-600 line-clamp-1 relative z-10">
-                          {bg.description}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Immersive Wallpapers Section */}
-              <div className="space-y-2.5">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center space-x-1.5">
-                  <ImageIcon className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>University & Study Wallpapers</span>
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
-                  {BACKGROUND_PRESETS.filter(b => b.category === "Immersive Wallpaper").map((bg) => {
-                    const isSelected = settings.backgroundStyle === bg.id;
-                    return (
-                      <button
-                        key={bg.id}
-                        type="button"
-                        onClick={() => handleBgSelect(bg.id)}
-                        className={`group relative rounded-xl overflow-hidden h-24 border text-left transition-all cursor-pointer ${
-                          isSelected
-                            ? "ring-2 ring-indigo-600 border-indigo-600 shadow-md"
-                            : "border-slate-200 hover:border-slate-400"
-                        }`}
-                      >
-                        <img
-                          src={bg.thumbnailUrl || ""}
-                          alt={bg.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex flex-col justify-between p-2.5">
-                          <div className="flex justify-end">
-                            {isSelected && (
-                              <div className="w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center text-white">
-                                <Check className="w-2.5 h-2.5" />
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <span className="text-xs font-bold text-white leading-tight block">
-                              {bg.name}
-                            </span>
-                            <span className="text-[10px] text-slate-300 leading-tight line-clamp-1">
-                              {bg.description}
-                            </span>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Wallpaper Dim & Blur Controls */}
-              <div className="p-4 bg-slate-900 rounded-xl space-y-4 text-white border border-slate-800">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-200 flex items-center space-x-1.5">
-                    <Sliders className="w-4 h-4 text-indigo-400" />
-                    <span>Backdrop Dimming & Focus Controls</span>
-                  </span>
-                  <span className="text-xs text-slate-400">Live adjustment</span>
-                </div>
-
-                {/* Dimming Slider */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Background Dimming</span>
-                    <span className="font-mono text-indigo-300 font-bold">{settings.backgroundDim ?? 65}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="90"
-                    step="5"
-                    value={settings.backgroundDim ?? 65}
-                    onChange={(e) => handleDimChange(parseInt(e.target.value))}
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-400"
-                  />
-                  <div className="flex justify-between text-[10px] text-slate-500">
-                    <span>Bright (10%)</span>
-                    <span>Standard (65%)</span>
-                    <span>Maximum Contrast (90%)</span>
-                  </div>
-                </div>
-
-                {/* Blur Slider */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Background Blur</span>
-                    <span className="font-mono text-indigo-300 font-bold">{settings.backgroundBlur ?? 0}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="16"
-                    step="2"
-                    value={settings.backgroundBlur ?? 0}
-                    onChange={(e) => handleBlurChange(parseInt(e.target.value))}
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-400"
-                  />
-                  <div className="flex justify-between text-[10px] text-slate-500">
-                    <span>Sharp (0px)</span>
-                    <span>Subtle (6px)</span>
-                    <span>Soft Focus (16px)</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: FONTS & TYPOGRAPHY */}
-          {activeTab === "fonts" && (
-            <div className="space-y-4">
-              <div className="p-3.5 bg-indigo-50/70 rounded-xl border border-indigo-100 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-base">
-                    Ag
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-indigo-950">
-                      Active Typography: {currentFont.name}
-                    </span>
-                    <p className="text-[11px] text-indigo-700">{currentFont.description}</p>
-                  </div>
-                </div>
-                <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
-                  {currentFont.category}
-                </span>
-              </div>
-
-              <div className="space-y-2.5">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Choose Primary Font Family
-                </h3>
-
-                <div className="grid grid-cols-1 gap-2.5">
-                  {FONT_OPTIONS.map((font) => {
-                    const isSelected = (settings.fontFamily || "plus-jakarta") === font.id;
-                    return (
-                      <button
-                        key={font.id}
-                        type="button"
-                        onClick={() => handleFontSelect(font.id)}
-                        className={`p-4 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer group ${
-                          isSelected
-                            ? "bg-indigo-50/50 border-indigo-600 ring-2 ring-indigo-500/20 shadow-xs"
-                            : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60"
-                        }`}
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-2">
-                            <span 
-                              className="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors"
-                              style={{ fontFamily: font.family }}
-                            >
-                              {font.name}
-                            </span>
-                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                              {font.category}
-                            </span>
-                          </div>
-
-                          <p 
-                            className="text-sm text-slate-600 font-medium"
-                            style={{ fontFamily: font.family }}
-                          >
-                            {font.preview}
-                          </p>
-                          <p className="text-[11px] text-slate-400">
-                            {font.description}
-                          </p>
-                        </div>
-
-                        {isSelected ? (
-                          <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
-                            <Check className="w-3.5 h-3.5" />
-                          </div>
-                        ) : (
-                          <div className="w-6 h-6 rounded-full border border-slate-300 group-hover:border-indigo-400 shrink-0" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: CUSTOM WALLPAPER */}
-          {activeTab === "custom-bg" && (
-            <div className="space-y-4">
               <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <Sun className="w-4 h-4 text-amber-500" />
+                  <span>Bright & Sunny</span>
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {BACKGROUND_PRESETS.filter(b => b.category === "Doodle Light").map(renderPresetTile)}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <Moon className="w-4 h-4 text-indigo-500" />
+                  <span>After Dark</span>
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {BACKGROUND_PRESETS.filter(b => b.category === "Doodle Dark").map(renderPresetTile)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "custom-bg" && (
+            <div className="space-y-5">
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold uppercase tracking-wider">
                   Upload Custom Background Photo
                 </h3>
 
@@ -472,67 +201,108 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
 
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-300 hover:border-indigo-500 bg-slate-50 hover:bg-indigo-50/30 rounded-2xl p-6 text-center cursor-pointer transition-colors"
+                  className="border-[2.5px] border-dashed border-ink rounded-2xl p-6 text-center cursor-pointer bg-white hover:bg-lemon/30 transition-colors"
                 >
-                  <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2 group-hover:text-indigo-600" />
-                  <p className="text-sm font-bold text-slate-800">
+                  <Upload className="w-8 h-8 mx-auto mb-2" />
+                  <p className="text-sm font-bold">
                     Click to browse wallpaper from your device
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-ink/60 mt-1">
                     Supports high-resolution PNG, JPG, WebP photos (up to 8MB)
                   </p>
                 </div>
               </div>
 
               {/* Or Direct Image URL */}
-              <div className="space-y-2 pt-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <div className="space-y-2">
+                <label className="block text-sm font-bold uppercase tracking-wider">
                   Or Paste Wallpaper URL
                 </label>
-                <div className="flex space-x-2">
+                <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <LinkIcon className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <LinkIcon className="w-4 h-4 text-ink/50 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="url"
                       placeholder="https://example.com/my-wallpaper.jpg"
                       value={customUrlInput}
                       onChange={(e) => setCustomUrlInput(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs sm:text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                      className="doodle-input w-full pl-9 pr-3 py-2 text-xs sm:text-sm"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleApplyCustomUrl}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                    className="doodle-btn bg-bubblegum px-4 py-2 text-xs"
                   >
                     Apply URL
                   </button>
                 </div>
               </div>
 
-              {/* Custom Image Active Status */}
-              {settings.backgroundStyle === "custom" && settings.customBackgroundUrl && (
-                <div className="p-4 bg-slate-900 rounded-xl space-y-3 text-white border border-slate-800">
+              {/* Custom Image Active Status & controls */}
+              {isCustomActive && (
+                <div className="doodle-card bg-white p-4 space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-400 flex items-center space-x-1.5">
-                      <Check className="w-4 h-4" />
-                      <span>Custom Wallpaper Currently Active</span>
+                    <span className="doodle-chip bg-mint">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Custom Wallpaper Active</span>
                     </span>
                     <button
                       type="button"
-                      onClick={() => onUpdateSettings({ backgroundStyle: "slate", customBackgroundUrl: "" })}
-                      className="text-xs text-rose-400 hover:text-rose-300 flex items-center space-x-1 cursor-pointer"
+                      onClick={() => onUpdateSettings({ backgroundStyle: DEFAULT_BACKGROUND_ID, customBackgroundUrl: "" })}
+                      className="doodle-btn bg-white hover:bg-rose-200 px-2.5 py-1 text-xs"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Reset to Default</span>
+                      <span>Back to Doodles</span>
                     </button>
                   </div>
 
-                  <div className="h-28 rounded-lg overflow-hidden relative border border-slate-700">
+                  <div className="h-28 rounded-xl overflow-hidden border-2 border-ink">
                     <img
                       src={settings.customBackgroundUrl}
                       alt="Custom Wallpaper Preview"
                       className="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-sm font-bold">
+                    <Sliders className="w-4 h-4" />
+                    <span>Dimming & Blur</span>
+                  </div>
+
+                  {/* Dimming Slider */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-ink/70">Background Dimming</span>
+                      <span className="font-bold">{settings.backgroundDim ?? 65}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="90"
+                      step="5"
+                      value={settings.backgroundDim ?? 65}
+                      onChange={(e) => handleDimChange(parseInt(e.target.value))}
+                      className="doodle-range"
+                      style={{ "--accent": "#b9a2ff", "--fill": `${(((settings.backgroundDim ?? 65) - 10) / 80) * 100}%` } as React.CSSProperties}
+                    />
+                  </div>
+
+                  {/* Blur Slider */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-ink/70">Background Blur</span>
+                      <span className="font-bold">{settings.backgroundBlur ?? 0}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="16"
+                      step="2"
+                      value={settings.backgroundBlur ?? 0}
+                      onChange={(e) => handleBlurChange(parseInt(e.target.value))}
+                      className="doodle-range"
+                      style={{ "--accent": "#8cc8ff", "--fill": `${((settings.backgroundBlur ?? 0) / 16) * 100}%` } as React.CSSProperties}
                     />
                   </div>
                 </div>
@@ -542,14 +312,14 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50 shrink-0">
-          <span className="text-xs text-slate-500">
+        <div className="flex items-center justify-between px-6 py-4 border-t-2 border-dashed border-ink/30 shrink-0">
+          <span className="text-xs text-ink/60">
             Changes apply instantly to the dashboard
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer"
+            className="doodle-btn bg-mint px-5 py-2 text-sm"
           >
             Done
           </button>

@@ -1,5 +1,5 @@
 import React from "react";
-import { Send, Calendar } from "lucide-react";
+import { Send, Calendar, Star, Sparkles } from "lucide-react";
 import { UserSettings } from "../types";
 
 interface CountdownCardProps {
@@ -23,67 +23,61 @@ export const CountdownCard: React.FC<CountdownCardProps> = ({
   onTriggerReset,
   onOpenEmailReport,
 }) => {
+  const blocks = [
+    { label: "Days", value: countdown.days, color: "bg-lemon", tilt: "-rotate-3" },
+    { label: "Hours", value: countdown.hours, color: "bg-bubblegum", tilt: "rotate-2" },
+    { label: "Mins", value: countdown.minutes, color: "bg-mint", tilt: "-rotate-2" },
+    { label: "Secs", value: countdown.seconds, color: "bg-sky-pop", tilt: "rotate-3" },
+  ];
+
   return (
-    <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 rounded-2xl p-5 sm:p-6 text-white border border-slate-700/80 shadow-lg relative overflow-hidden mb-8">
-      {/* Background ambient lighting */}
-      <div className="absolute -right-12 -top-12 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -left-12 -bottom-12 w-64 h-64 bg-sky-600/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="doodle-card bg-white p-5 sm:p-6 relative overflow-hidden mb-8">
+      {/* Corner doodles */}
+      <Star className="absolute right-4 top-3 w-6 h-6 text-ink fill-lemon rotate-12 animate-bob pointer-events-none hidden sm:block" />
+      <Sparkles className="absolute left-[46%] bottom-3 w-5 h-5 text-pink-500 pointer-events-none hidden lg:block" />
 
       <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         {/* Left: Active Cycle & Status */}
-        <div className="space-y-2 max-w-xl">
-          <div className="flex items-center space-x-2">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse" />
-              Active Weekly Cycle
-            </span>
-          </div>
+        <div className="space-y-3 max-w-xl">
+          <span className="doodle-chip bg-mint">
+            <span className="w-2 h-2 rounded-full bg-ink animate-pulse" />
+            Active Weekly Cycle
+          </span>
 
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-indigo-400" />
-            {weekLabel}
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2.5">
+            <span className="w-10 h-10 rounded-xl bg-grape border-[2.5px] border-ink shadow-doodle-sm flex items-center justify-center rotate-3 shrink-0">
+              <Calendar className="w-5 h-5" />
+            </span>
+            <span className="doodle-squiggle">{weekLabel}</span>
           </h2>
+          <p className="text-sm text-ink/70">
+            Fresh start every Monday at midnight. Keep those hours climbing!
+          </p>
         </div>
 
         {/* Right: Countdown Display & Trigger Actions */}
-        <div className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end justify-between gap-4 bg-slate-800/60 lg:bg-transparent p-4 sm:p-5 lg:p-0 rounded-xl border border-slate-700/50 lg:border-none">
+        <div className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end justify-between gap-4">
           {/* Countdown Digit Blocks */}
-          <div className="flex items-center space-x-2 sm:space-x-3 text-center">
-            <div className="bg-slate-950/80 border border-slate-700/80 rounded-xl px-3 py-2 min-w-[58px] shadow-inner">
-              <div className="text-lg sm:text-xl font-extrabold font-mono text-white">
-                {String(countdown.days).padStart(2, "0")}
-              </div>
-              <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Days</div>
-            </div>
-            <span className="text-slate-500 font-bold text-lg">:</span>
-            <div className="bg-slate-950/80 border border-slate-700/80 rounded-xl px-3 py-2 min-w-[58px] shadow-inner">
-              <div className="text-lg sm:text-xl font-extrabold font-mono text-white">
-                {String(countdown.hours).padStart(2, "0")}
-              </div>
-              <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Hours</div>
-            </div>
-            <span className="text-slate-500 font-bold text-lg">:</span>
-            <div className="bg-slate-950/80 border border-slate-700/80 rounded-xl px-3 py-2 min-w-[58px] shadow-inner">
-              <div className="text-lg sm:text-xl font-extrabold font-mono text-white">
-                {String(countdown.minutes).padStart(2, "0")}
-              </div>
-              <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Mins</div>
-            </div>
-            <span className="text-slate-500 font-bold text-lg">:</span>
-            <div className="bg-slate-950/80 border border-slate-700/80 rounded-xl px-3 py-2 min-w-[58px] shadow-inner">
-              <div className="text-lg sm:text-xl font-extrabold font-mono text-indigo-400">
-                {String(countdown.seconds).padStart(2, "0")}
-              </div>
-              <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Secs</div>
-            </div>
+          <div className="flex items-center gap-1.5 sm:gap-3 text-center">
+            {blocks.map((block, i) => (
+              <React.Fragment key={block.label}>
+                {i > 0 && <span className="font-bold text-xl">:</span>}
+                <div className={`${block.color} ${block.tilt} border-[2.5px] border-ink rounded-xl px-2 sm:px-3 py-2 min-w-[52px] sm:min-w-[60px] shadow-doodle-sm`}>
+                  <div className="text-xl sm:text-3xl font-bold tabular-nums leading-none">
+                    {String(block.value).padStart(2, "0")}
+                  </div>
+                  <div className="text-[10px] uppercase font-semibold tracking-wider mt-1">{block.label}</div>
+                </div>
+              </React.Fragment>
+            ))}
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-1">
             <button
               id="btn-quick-preview-email"
               onClick={onOpenEmailReport}
-              className="flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-all shadow-sm cursor-pointer"
+              className="doodle-btn bg-grape flex-1 sm:flex-none px-4 py-2 text-xs"
               title="Generate and preview weekly report email right now"
             >
               <Send className="w-3.5 h-3.5" />

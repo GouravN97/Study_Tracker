@@ -53,83 +53,88 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
   const targetDailyPace = totalTargetHours > 0 ? totalTargetHours / 7 : 0;
   const neededDailyPace = hoursRemaining > 0 ? (hoursRemaining / daysRemaining) : 0;
 
+  const filters = [
+    { id: "all", label: `All Courses (${courses.length})`, activeColor: "bg-lemon" },
+    { id: "in-progress", label: `In Progress (${inProgressCourses.length})`, activeColor: "bg-sky-pop" },
+    { id: "completed", label: `Target Reached (${completedCourses.length})`, activeColor: "bg-mint" },
+    { id: "behind", label: `Needs Focus (<50%) (${behindCourses.length})`, activeColor: "bg-tangerine" },
+  ];
+
+  const statCard = "doodle-card bg-white p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-1";
+  const statIcon = "w-9 h-9 rounded-xl border-2 border-ink shadow-doodle-sm flex items-center justify-center";
+  const statLabel = "text-xs font-semibold uppercase tracking-wider text-ink/60";
+
   return (
     <div className="space-y-6 mb-8">
       {/* 4 Stat Cards Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Hours */}
-        <div className="bg-white/95 backdrop-blur-xs rounded-xl p-4 sm:p-5 border border-slate-200/80 shadow-xs">
+        <div className={`${statCard} hover:-rotate-1`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Total Hours
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+            <span className={statLabel}>Total Hours</span>
+            <div className={`${statIcon} bg-lemon -rotate-6`}>
               <BookOpen className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline space-x-2">
-            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+            <span className="text-3xl sm:text-4xl font-bold">
               {totalHoursCompleted.toFixed(1)}
             </span>
-            <span className="text-xs sm:text-sm font-semibold text-slate-400">
+            <span className="text-xs sm:text-sm font-semibold text-ink/50">
               / {totalTargetHours}h target
             </span>
           </div>
-          <div className="mt-2 flex items-center text-xs text-slate-500 font-medium">
-            <span className="text-indigo-600 font-semibold">{hoursRemaining.toFixed(1)}h</span>
+          <div className="mt-2 flex items-center text-xs text-ink/60">
+            <span className="font-bold text-ink bg-lemon/60 px-1 rounded">{hoursRemaining.toFixed(1)}h</span>
             <span className="ml-1">remaining to complete all</span>
           </div>
         </div>
 
         {/* Completion Rate */}
-        <div className="bg-white/95 backdrop-blur-xs rounded-xl p-4 sm:p-5 border border-slate-200/80 shadow-xs">
+        <div className={`${statCard} hover:rotate-1`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Completion Rate
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+            <span className={statLabel}>Completion Rate</span>
+            <div className={`${statIcon} bg-mint rotate-6`}>
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline space-x-2">
-            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+          <div className="mt-3 flex items-baseline flex-wrap gap-2">
+            <span className="text-3xl sm:text-4xl font-bold">
               {overallPercentage}%
             </span>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-              overallPercentage >= 80 ? "bg-emerald-100 text-emerald-800" :
-              overallPercentage >= 50 ? "bg-indigo-100 text-indigo-800" :
-              "bg-amber-100 text-amber-800"
+            <span className={`doodle-chip ${
+              overallPercentage >= 80 ? "bg-mint" :
+              overallPercentage >= 50 ? "bg-sky-pop" :
+              "bg-tangerine"
             }`}>
               {overallPercentage >= 80 ? "Excellent" : overallPercentage >= 50 ? "On Track" : "Building"}
             </span>
           </div>
-          <div className="mt-2 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+          <div className="mt-2.5 w-full bg-white border-2 border-ink h-3.5 rounded-full overflow-hidden">
             <div 
-              className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+              className="bg-mint h-full border-r-2 border-ink transition-all duration-500" 
               style={{ width: `${Math.min(100, overallPercentage)}%` }}
             />
           </div>
         </div>
 
         {/* Courses Completed */}
-        <div className="bg-white/95 backdrop-blur-xs rounded-xl p-4 sm:p-5 border border-slate-200/80 shadow-xs">
+        <div className={`${statCard} hover:-rotate-1`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Goals Reached
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center text-sky-600">
+            <span className={statLabel}>Goals Reached</span>
+            <div className={`${statIcon} bg-sky-pop -rotate-3`}>
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline space-x-2">
-            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+            <span className="text-3xl sm:text-4xl font-bold">
               {completedCourses.length}
             </span>
-            <span className="text-xs sm:text-sm font-semibold text-slate-400">
+            <span className="text-xs sm:text-sm font-semibold text-ink/50">
               / {courses.length} courses
             </span>
           </div>
-          <div className="mt-2 text-xs text-slate-500 font-medium">
+          <div className="mt-2 text-xs text-ink/60">
             {completedCourses.length === courses.length && courses.length > 0 
               ? "All subject targets met! 🎉" 
               : `${courses.length - completedCourses.length} subject(s) in progress`}
@@ -137,43 +142,41 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
         </div>
 
         {/* Study Velocity / Daily Pace */}
-        <div className="bg-white/95 backdrop-blur-xs rounded-xl p-4 sm:p-5 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+        <div className={`${statCard} hover:rotate-1 flex flex-col justify-between`}>
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Avg Pace / Day
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+              <span className={statLabel}>Avg Pace / Day</span>
+              <div className={`${statIcon} bg-bubblegum rotate-6`}>
                 <Flame className="w-4 h-4" />
               </div>
             </div>
-            <div className="mt-3 flex items-baseline space-x-2">
-              <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+            <div className="mt-3 flex items-baseline flex-wrap gap-x-2 gap-y-1">
+              <span className="text-3xl sm:text-4xl font-bold">
                 {activePace.toFixed(1)}h
               </span>
-              <span className="text-xs sm:text-sm font-semibold text-slate-400">
+              <span className="text-xs sm:text-sm font-semibold text-ink/50">
                 / day
               </span>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+              <span className={`doodle-chip ${
                 activePace >= targetDailyPace && totalHoursCompleted > 0
-                  ? "bg-emerald-100 text-emerald-800"
+                  ? "bg-mint"
                   : totalHoursCompleted === 0
-                  ? "bg-slate-100 text-slate-600"
-                  : "bg-amber-100 text-amber-800"
+                  ? "bg-white"
+                  : "bg-tangerine"
               }`}>
                 {paceMode === "elapsed" ? `Day ${daysElapsed} of 7` : "7-day avg"}
               </span>
             </div>
           </div>
-          <div className="mt-2 text-xs text-slate-500 font-medium flex items-center justify-between pt-1">
+          <div className="mt-2 text-xs text-ink/60 flex items-center justify-between pt-1">
             <span className="truncate">
               {hoursRemaining <= 0 ? (
-                <span className="text-emerald-600 font-semibold">Weekly target met! 🎉</span>
+                <span className="text-ink font-semibold">Weekly target met! 🎉</span>
               ) : paceMode === "elapsed" ? (
                 <span>
                   Target: ~{targetDailyPace.toFixed(1)}h/d
                   {daysElapsed < 7 && (
-                    <span className="text-slate-400 ml-1">
+                    <span className="text-ink/45 ml-1">
                       (need ~{neededDailyPace.toFixed(1)}h/d left)
                     </span>
                   )}
@@ -185,7 +188,7 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
             <button
               type="button"
               onClick={() => setPaceMode((prev) => (prev === "elapsed" ? "full" : "elapsed"))}
-              className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold ml-1.5 shrink-0 cursor-pointer underline decoration-dotted"
+              className="text-[11px] text-ink font-bold ml-1.5 shrink-0 cursor-pointer underline decoration-wavy decoration-pink-400 hover:text-pink-600"
               title={paceMode === "elapsed" ? "Switch to 7-day flat average" : "Switch to elapsed days pace"}
             >
               {paceMode === "elapsed" ? "7d view" : "elapsed"}
@@ -195,65 +198,36 @@ export const OverviewMetrics: React.FC<OverviewMetricsProps> = ({
       </div>
 
       {/* Filter and Search Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white/95 backdrop-blur-xs p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs">
+      <div className="doodle-card bg-white flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 sm:p-4">
         {/* Filter Pills */}
-        <div className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto pb-1 sm:pb-0">
-          <button
-            id="filter-all"
-            onClick={() => onSelectFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 ${
-              selectedFilter === "all"
-                ? "bg-slate-900 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
-          >
-            All Courses ({courses.length})
-          </button>
-          <button
-            id="filter-in-progress"
-            onClick={() => onSelectFilter("in-progress")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 ${
-              selectedFilter === "in-progress"
-                ? "bg-indigo-600 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
-          >
-            In Progress ({inProgressCourses.length})
-          </button>
-          <button
-            id="filter-completed"
-            onClick={() => onSelectFilter("completed")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 ${
-              selectedFilter === "completed"
-                ? "bg-emerald-600 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
-          >
-            Target Reached ({completedCourses.length})
-          </button>
-          <button
-            id="filter-behind"
-            onClick={() => onSelectFilter("behind")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 ${
-              selectedFilter === "behind"
-                ? "bg-amber-600 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
-          >
-            Needs Focus (&lt;50%) ({behindCourses.length})
-          </button>
+        <div className="flex items-center gap-2 overflow-x-auto p-1">
+          {filters.map((filter) => {
+            const isActive = selectedFilter === filter.id;
+            return (
+              <button
+                key={filter.id}
+                id={`filter-${filter.id}`}
+                onClick={() => onSelectFilter(filter.id)}
+                className={`doodle-btn shrink-0 px-3 py-1.5 text-xs ${
+                  isActive ? `${filter.activeColor}` : "bg-white shadow-none hover:shadow-doodle-sm"
+                }`}
+              >
+                {filter.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Search Bar */}
         <div className="relative w-full sm:w-64 shrink-0">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-ink/50 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             id="input-search-courses"
             type="text"
             placeholder="Search by name, code, instructor..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+            className="doodle-input w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm"
           />
         </div>
       </div>

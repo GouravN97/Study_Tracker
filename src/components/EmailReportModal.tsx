@@ -261,36 +261,36 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-auto">
+    <div className="doodle-modal-overlay flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+      <div className="doodle-modal max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden my-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-900 text-white shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 shrink-0 border-b-[3px] border-ink bg-bubblegum">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center shadow-inner">
-              <Mail className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-white border-2 border-ink shadow-doodle-sm flex items-center justify-center -rotate-6">
+              <Mail className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight flex flex-wrap items-center gap-2">
                 Weekly Course Progress Report
-                <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">
+                <span className="doodle-chip bg-white">
                   {weekLabel}
                 </span>
               </h2>
-              <p className="text-xs text-slate-300">
+              <p className="text-xs text-ink/70">
                 Automated weekly summary & academic evaluation
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            className="doodle-btn bg-white p-1"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Action Controls Bar */}
-        <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="px-6 py-3 border-b-2 border-dashed border-ink/30 flex flex-wrap items-center justify-between gap-3 shrink-0">
           {/* Recipient Email Input */}
           <div className="flex items-center space-x-2 flex-1 min-w-[280px]">
             <span className="text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">
@@ -305,7 +305,7 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
                 onUpdateEmail(e.target.value);
               }}
               placeholder="your-email@university.edu"
-              className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="doodle-input flex-1 px-3 py-1.5 text-xs sm:text-sm font-medium"
             />
             {smtpStatus?.configured && (
               <span 
@@ -473,20 +473,20 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
           )}
 
           {viewMode === "raw" && (
-            <div className="bg-slate-900 rounded-xl p-4 sm:p-5 border border-slate-800 text-indigo-300 font-mono text-xs overflow-x-auto shadow-xs">
+            <div className="bg-ink rounded-xl p-4 sm:p-5 border-2 border-ink text-indigo-300 font-mono text-xs overflow-x-auto shadow-xs">
               <pre className="whitespace-pre-wrap">{htmlReport}</pre>
             </div>
           )}
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 sm:p-5 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="p-4 sm:p-5 border-t-2 border-dashed border-ink/30 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="flex flex-wrap items-center gap-2">
             {/* Copy Button */}
             <button
               id="btn-copy-report"
               onClick={() => handleCopy(viewMode === "raw" ? "html" : "text")}
-              className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              className="doodle-btn bg-white px-3 py-2 text-xs"
             >
               {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-500" />}
               <span>{copied ? "Copied!" : "Copy Text"}</span>
@@ -495,7 +495,7 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
             {/* Download */}
             <button
               onClick={() => handleDownload("html")}
-              className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              className="doodle-btn bg-white px-3 py-2 text-xs"
               title="Download HTML transcript"
             >
               <Download className="w-4 h-4 text-slate-500" />
@@ -508,7 +508,7 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
               href={mailtoLinkPort}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              className="doodle-btn bg-white px-3 py-2 text-xs"
               title="Open prepared email in your default mail app"
             >
               <ExternalLink className="w-4 h-4 text-slate-500" />
@@ -521,7 +521,7 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
               href={outlookComposeLink}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center space-x-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              className="doodle-btn bg-sky-pop px-3 py-2 text-xs"
               title="Open prepared email in Outlook Web"
             >
               <Mail className="w-4 h-4 text-blue-600" />
@@ -532,7 +532,7 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
           <div className="flex items-center space-x-2.5">
             <button
               onClick={onClose}
-              className="px-3.5 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 cursor-pointer"
+              className="doodle-btn bg-white px-3.5 py-2 text-xs"
             >
               Close
             </button>
@@ -542,17 +542,15 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
               id="btn-send-email-smtp"
               onClick={handleSendEmail}
               disabled={isSending || !recipientEmail}
-              className={`flex items-center space-x-1.5 px-4 py-2.5 rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 text-white ${
-                smtpStatus?.configured
-                  ? "bg-slate-900 hover:bg-slate-800 ring-1 ring-emerald-400/40"
-                  : "bg-slate-800 hover:bg-slate-700"
+              className={`doodle-btn px-4 py-2.5 text-xs font-bold ${
+                smtpStatus?.configured ? "bg-mint" : "bg-white"
               }`}
               title={smtpStatus?.configured ? `Send directly via ${smtpStatus.host || "SMTP"}` : "Send directly in background via configured SMTP server"}
             >
               <Send className={`w-3.5 h-3.5 ${isSending ? "animate-pulse text-indigo-400" : ""}`} />
               <span>{isSending ? "Sending..." : "Send via SMTP"}</span>
               {smtpStatus?.configured && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block ml-0.5"></span>
+                <span className="w-2 h-2 rounded-full bg-ink inline-block ml-0.5"></span>
               )}
             </button>
 
@@ -571,10 +569,10 @@ export const EmailReportModal: React.FC<EmailReportModalProps> = ({
                   deliveryId: "GMAIL-" + Math.random().toString(36).substring(2, 8).toUpperCase(),
                 });
               }}
-              className="flex items-center space-x-2 px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs sm:text-sm font-bold shadow-md shadow-red-500/20 transition-all cursor-pointer"
+              className="doodle-btn bg-bubblegum px-5 py-2.5 text-xs sm:text-sm font-bold"
               title="Open in Gmail with pre-filled summary and hit Send"
             >
-              <Mail className="w-4 h-4 text-white" />
+              <Mail className="w-4 h-4" />
               <span>Send with Gmail (1-Click)</span>
             </a>
           </div>

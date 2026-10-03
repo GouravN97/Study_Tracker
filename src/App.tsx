@@ -13,7 +13,7 @@ import { DailyNotepad } from "./components/DailyNotepad";
 import { PreviousWeeksDashboardModal } from "./components/PreviousWeeksDashboardModal";
 import { Course, WeeklyReport, UserSettings } from "./types";
 import { INITIAL_COURSES, DEFAULT_USER_SETTINGS } from "./data/defaultCourses";
-import { FONT_OPTIONS, BACKGROUND_PRESETS, BackgroundPreset } from "./data/themes";
+import { PIXEL_FONT_FAMILY, BackgroundPreset, resolveBackgroundPreset } from "./data/themes";
 import { generateReportHtml, generatePlainTextSummary } from "./utils/emailTemplate";
 import { 
   getWeekId, 
@@ -673,71 +673,47 @@ export default function App() {
 
   const completedCount = safeCourses.filter(c => c && (Number(c.hoursCompleted) || 0) >= (Number(c.targetHours) || 12)).length;
 
-  // Resolve Active Font safely
-  const activeFont = useMemo(() => {
-    const selected = settings?.fontFamily || "plus-jakarta";
-    return (
-      FONT_OPTIONS.find(f => f.id === selected) ||
-      FONT_OPTIONS[0] || {
-        id: "plus-jakarta",
-        name: "Plus Jakarta Sans",
-        family: "'Plus Jakarta Sans', sans-serif",
-      }
-    );
-  }, [settings?.fontFamily]);
-
   // Resolve Active Background Theme safely
-  const activeBgPreset: BackgroundPreset = useMemo(() => {
-    const selected = settings?.backgroundStyle || "slate";
-    return (
-      BACKGROUND_PRESETS.find(b => b.id === selected) ||
-      BACKGROUND_PRESETS[0]
-    );
-  }, [settings?.backgroundStyle]);
+  const activeBgPreset: BackgroundPreset = useMemo(
+    () => resolveBackgroundPreset(settings?.backgroundStyle),
+    [settings?.backgroundStyle]
+  );
 
   const isCustomBg = settings?.backgroundStyle === "custom" && Boolean(settings?.customBackgroundUrl);
-  const isWallpaper = isCustomBg || activeBgPreset?.category === "Immersive Wallpaper";
 
   const dimOpacity = (settings?.backgroundDim ?? 65) / 100;
   const blurAmount = settings?.backgroundBlur ?? 0;
 
   return (
     <div 
-      className="min-h-screen relative flex flex-col transition-all duration-300 selection:bg-indigo-500 selection:text-white"
+      className="min-h-screen relative flex flex-col text-ink"
       style={{
-        fontFamily: activeFont?.family || "'Plus Jakarta Sans', sans-serif",
-        backgroundColor: activeBgPreset?.style?.backgroundColor || "#0f172a",
+        fontFamily: PIXEL_FONT_FAMILY,
+        backgroundColor: isCustomBg ? "#2a2140" : activeBgPreset.style.backgroundColor,
       }}
     >
-      {/* Background Image Layer if preset wallpaper or custom */}
-      {isWallpaper && (
+      {isCustomBg ? (
+        <>
+          {/* Custom uploaded wallpaper */}
+          <div 
+            className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat transition-all duration-500"
+            style={{
+              backgroundImage: `url("${settings.customBackgroundUrl}")`,
+              filter: blurAmount > 0 ? `blur(${blurAmount}px)` : undefined,
+              transform: blurAmount > 0 ? "scale(1.03)" : "none",
+            }}
+          />
+          {/* Dimming & Contrast Overlay */}
+          <div 
+            className="fixed inset-0 z-0 bg-ink transition-opacity duration-300 pointer-events-none"
+            style={{ opacity: dimOpacity }}
+          />
+        </>
+      ) : (
+        /* Tiled doodle pattern */
         <div 
-          className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat transition-all duration-500"
-          style={{
-            backgroundImage: isCustomBg 
-              ? `url("${settings.customBackgroundUrl}")` 
-              : activeBgPreset.style.backgroundImage,
-            filter: blurAmount > 0 ? `blur(${blurAmount}px)` : undefined,
-            transform: blurAmount > 0 ? "scale(1.03)" : "none",
-          }}
-        />
-      )}
-
-      {/* Background Gradient Layer for Non-Wallpaper presets */}
-      {!isWallpaper && activeBgPreset.style.backgroundImage && (
-        <div 
-          className="fixed inset-0 z-0 transition-all duration-500"
-          style={{
-            backgroundImage: activeBgPreset.style.backgroundImage,
-          }}
-        />
-      )}
-
-      {/* Dimming & Contrast Overlay */}
-      {isWallpaper && (
-        <div 
-          className="fixed inset-0 z-0 bg-slate-950 transition-opacity duration-300 pointer-events-none"
-          style={{ opacity: dimOpacity }}
+          className="fixed inset-0 z-0 transition-colors duration-500"
+          style={activeBgPreset.style}
         />
       )}
 
@@ -789,17 +765,18 @@ export default function App() {
 
           {/* Course Cards Grid */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white flex items-center space-x-2 drop-shadow-xs">
-                <BookOpen className="w-5 h-5 text-indigo-400" />
-                <span>University Courses ({filteredCourses.length})</span>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="doodle-card inline-flex items-center gap-2 px-4 py-1.5 text-lg font-bold -rotate-1">
+                <BookOpen className="w-5 h-5 text-pink-500" />
+                <span className="doodle-squiggle">My Courses</span>
+                <span className="doodle-chip bg-lemon">{filteredCourses.length}</span>
               </h2>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-2">
                 <button
                   id="btn-past-notes-dashboard"
                   onClick={() => setIsNotesDashboardModalOpen(true)}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  className="doodle-btn bg-mint px-3 py-1.5 text-xs"
                 >
                   <History className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Past Stats & Notes</span>
@@ -811,7 +788,7 @@ export default function App() {
                     setEditingCourse(null);
                     setIsAddModalOpen(true);
                   }}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  className="doodle-btn bg-bubblegum px-3 py-1.5 text-xs"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Subject</span>
@@ -820,12 +797,12 @@ export default function App() {
             </div>
 
             {filteredCourses.length === 0 ? (
-              <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl p-12 text-center border border-slate-700/80 space-y-3">
-                <div className="w-12 h-12 rounded-full bg-slate-800/80 flex items-center justify-center mx-auto text-slate-400">
-                  <BookOpen className="w-6 h-6" />
+              <div className="doodle-card p-12 text-center space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-sky-pop border-2 border-ink shadow-doodle-sm flex items-center justify-center mx-auto rotate-6 animate-bob">
+                  <BookOpen className="w-7 h-7" />
                 </div>
-                <h3 className="text-base font-bold text-white">No courses match your filter</h3>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                <h3 className="text-lg font-bold">No courses match your filter</h3>
+                <p className="text-sm text-ink/70 max-w-sm mx-auto">
                   Try clearing search terms or adding a new university course to your weekly tracker.
                 </p>
                 <button
@@ -833,7 +810,7 @@ export default function App() {
                     setSelectedFilter("all");
                     setSearchQuery("");
                   }}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                  className="doodle-btn bg-lemon px-4 py-2 text-xs"
                 >
                   Clear Filters
                 </button>
@@ -859,21 +836,29 @@ export default function App() {
         </main>
 
         {/* Footer */}
-        <footer className="bg-slate-950/90 backdrop-blur-md border-t border-slate-800 py-6 text-center text-xs text-slate-500 mt-12">
-          <div className="max-w-7xl mx-auto px-4 space-y-2">
-            <div className="flex items-center justify-center space-x-3">
+        <footer className="mt-12 mb-6 px-4">
+          <div className="doodle-card max-w-3xl mx-auto px-6 py-5 text-center text-xs space-y-2 rotate-[0.4deg]">
+            <div className="flex items-center justify-center gap-2">
               <button
                 type="button"
                 onClick={() => setIsSettingsModalOpen(true)}
-                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                className="doodle-btn bg-white px-3 py-1 text-xs"
               >
                 Settings & Preferences
               </button>
+              <button
+                type="button"
+                onClick={() => setIsAppearanceModalOpen(true)}
+                className="doodle-btn bg-grape px-3 py-1 text-xs"
+              >
+                <Palette className="w-3.5 h-3.5" />
+                Doodle Themes
+              </button>
             </div>
-            <p className="text-slate-400 font-medium">
-              University Course Weekly Progress Tracker • Customizable Study Targets
+            <p className="font-semibold text-sm">
+              University Course Weekly Progress Tracker ✦ Customizable Study Targets
             </p>
-            <p className="text-slate-600">
+            <p className="text-ink/60">
               Automatic reset triggers every Monday at 12:00 AM. Reports auto-generated with Gemini Academic Insights.
             </p>
           </div>
@@ -989,9 +974,11 @@ export default function App() {
 
       {/* Floating Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center space-x-2.5 px-4 py-3 bg-slate-900 text-white border border-slate-700 shadow-xl rounded-xl text-xs font-semibold animate-in fade-in slide-in-from-bottom-4 duration-200">
-          {toastMessage.type === "success" && <Check className="w-4 h-4 text-emerald-400" />}
-          {toastMessage.type === "info" && <AlertCircle className="w-4 h-4 text-indigo-400" />}
+        <div className={`doodle-card fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 text-sm font-semibold animate-doodle-pop ${
+          toastMessage.type === "success" ? "bg-mint" : toastMessage.type === "warning" ? "bg-tangerine" : "bg-sky-pop"
+        }`}>
+          {toastMessage.type === "success" && <Check className="w-4 h-4" />}
+          {toastMessage.type !== "success" && <AlertCircle className="w-4 h-4" />}
           <span>{toastMessage.text}</span>
         </div>
       )}

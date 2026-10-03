@@ -9,8 +9,8 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   autoEmailReport: true,
   defaultSubjectTarget: 12,
   lastResetWeekId: "",
-  fontFamily: "plus-jakarta",
-  backgroundStyle: "slate",
+  fontFamily: "pixelify-sans",
+  backgroundStyle: "doodle-notebook",
   backgroundDim: 65,
   backgroundBlur: 0,
 };

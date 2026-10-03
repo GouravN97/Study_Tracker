@@ -140,27 +140,27 @@ export const CourseModal: React.FC<CourseModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm"
+      className="doodle-modal-overlay flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="doodle-modal max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 shrink-0 border-b-[3px] border-ink bg-mint">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
+            <div className="w-9 h-9 rounded-xl bg-white border-2 border-ink shadow-doodle-sm flex items-center justify-center -rotate-6">
               <BookOpen className="w-4 h-4" />
             </div>
-            <h2 className="text-lg font-bold text-slate-900">
+            <h2 className="text-lg sm:text-xl font-bold">
               {initialCourse ? "Edit University Subject & Visuals" : "Add New University Subject"}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="doodle-btn bg-white p-1"
           >
             <X className="w-5 h-5" />
           </button>
@@ -183,7 +183,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                 placeholder="e.g. CS 301"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 font-mono font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-text"
+                className="doodle-input w-full px-3 py-2 text-sm font-mono font-bold cursor-text"
               />
             </div>
 
@@ -199,7 +199,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                 placeholder="e.g. Algorithms & Data Structures"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-text"
+                className="doodle-input w-full px-3 py-2 text-sm cursor-text"
               />
             </div>
           </div>
@@ -216,7 +216,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                 placeholder="e.g. Dr. Alan Turing"
                 value={instructor}
                 onChange={(e) => setInstructor(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-text"
+                className="doodle-input w-full px-3 py-2 text-sm cursor-text"
               />
             </div>
 
@@ -229,7 +229,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                 id="select-course-category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                className="doodle-input w-full px-3 py-2 text-sm cursor-pointer"
               >
                 {CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -253,7 +253,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                   step="1"
                   value={targetHours}
                   onChange={(e) => setTargetHours(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-text"
+                  className="doodle-input w-full px-3 py-1.5 text-sm font-bold cursor-text"
                 />
                 <span className="text-xs font-semibold text-slate-500">hrs</span>
               </div>
@@ -273,7 +273,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                   step="0.5"
                   value={hoursCompleted}
                   onChange={(e) => setHoursCompleted(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-text"
+                  className="doodle-input w-full px-3 py-1.5 text-sm font-bold cursor-text"
                 />
                 <span className="text-xs font-semibold text-slate-500">/ {targetHours || 12}h</span>
               </div>
@@ -353,7 +353,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                     }}
                     placeholder="#6366F1"
                     maxLength={7}
-                    className="w-20 px-2 py-1 text-xs font-mono font-bold border border-slate-300 rounded-md uppercase bg-white focus:outline-none focus:ring-1 focus:ring-slate-700"
+                    className="doodle-input w-20 px-2 py-1 text-xs font-mono font-bold uppercase"
                   />
                 </div>
               )}
@@ -510,13 +510,13 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                       placeholder="https://example.com/course-photo.jpg"
                       value={customUrlInput}
                       onChange={(e) => handleCustomUrlChange(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono cursor-text"
+                      className="doodle-input w-full pl-8 pr-3 py-2 text-xs font-mono cursor-text"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleApplyCustomUrl}
-                    className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                    className="doodle-btn bg-mint px-3 py-2 text-xs font-bold"
                   >
                     Set URL
                   </button>
@@ -526,7 +526,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
 
             {/* Live Picture Preview and Darken / Contrast Slider */}
             {backgroundImage && (
-              <div className="p-3 bg-slate-900 rounded-xl space-y-2 text-white border border-slate-800">
+              <div className="p-3 bg-ink rounded-xl space-y-2 text-white border-2 border-ink">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-slate-300 flex items-center space-x-1.5">
                     <Sliders className="w-3.5 h-3.5 text-indigo-400" />
@@ -584,19 +584,19 @@ export const CourseModal: React.FC<CourseModalProps> = ({
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100 shrink-0">
+          <div className="flex items-center justify-end space-x-3 pt-4 border-t-2 border-dashed border-ink/30 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 transition-colors cursor-pointer"
+              className="doodle-btn bg-white px-4 py-2 text-sm"
             >
               Cancel
             </button>
             <button
               id="btn-save-course"
               type="submit"
-              style={currentAccent.buttonStyle}
-              className="px-5 py-2 text-white rounded-lg text-sm font-bold shadow-md transition-all cursor-pointer hover:brightness-110"
+              style={{ backgroundColor: `rgba(${currentAccent.rgb}, 0.55)` }}
+              className="doodle-btn px-5 py-2 text-sm font-bold"
             >
               {initialCourse ? "Save Changes" : "Add Course"}
             </button>
